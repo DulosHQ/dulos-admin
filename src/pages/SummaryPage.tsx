@@ -392,45 +392,45 @@ export default function SummaryPage() {
         </div>
       </div>
 
-      {/* Clientes Recientes + Actividad Reciente */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Clientes Recientes - left column */}
-        <div className="section-card flex flex-col">
+      {/* Clientes + Actividad — full width side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Clientes Recientes — 2 cols */}
+        <div className="section-card flex flex-col lg:col-span-2">
           <div className="section-card-header !py-3">
-            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            <svg className="w-4 h-4" fill="none" stroke="#E63946" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <span className="section-card-title">Clientes Recientes</span>
           </div>
           <div className="flex-1 divide-y divide-gray-50">
             {clientes.map((cliente) => (
               <div key={cliente.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
-                <div className="w-9 h-9 rounded-full bg-[#E63946] flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-[#E63946] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                   {cliente.nombre.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 text-sm truncate">{cliente.nombre}</p>
-                  <p className="text-xs text-gray-500">{cliente.ordenes} órdenes · ${cliente.gastado.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400">{cliente.ordenes} órdenes · ${cliente.gastado.toLocaleString()} · {cliente.boletos} boletos</p>
                 </div>
-                <button onClick={() => alert(`Detalle de ${cliente.nombre}`)} className="text-xs text-[#E63946] hover:underline flex-shrink-0">
-                  Ver detalle
+                <button onClick={() => alert(`Detalle de ${cliente.nombre}`)} className="text-[11px] text-[#E63946] hover:underline flex-shrink-0 font-medium">
+                  Ver →
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Actividad Reciente - right 2 columns */}
-        <div className="section-card flex flex-col lg:col-span-2">
+        {/* Actividad Reciente — 3 cols */}
+        <div className="section-card flex flex-col lg:col-span-3">
           <div className="section-card-header !py-3">
-            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <svg className="w-4 h-4" fill="none" stroke="#E63946" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             <span className="section-card-title">Actividad Reciente</span>
           </div>
           <div className="flex-1 divide-y divide-gray-50">
-            {actividadReciente.map((actividad) => (
-              <div key={actividad.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+            {actividadReciente.filter(a => !a.mensaje.includes('null')).map((actividad) => (
+              <div key={actividad.id} className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors">
                 <span className="text-sm flex-shrink-0">{getActividadEmoji(actividad.tipo)}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-700 truncate">{actividad.mensaje}</p>
