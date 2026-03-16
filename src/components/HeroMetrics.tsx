@@ -95,12 +95,10 @@ function MetricCard({ metric }: { metric: MetricData }) {
 
   return (
     <div className="metric-card group">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">{metric.label}</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{metric.value}</p>
-        </div>
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63946]/[0.08] to-[#E63946]/[0.15] flex items-center justify-center flex-shrink-0">
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{metric.label}</p>
+      <div className="flex items-end justify-between mt-1">
+        <p className="text-2xl font-extrabold text-gray-900 tracking-tight leading-none">{metric.value}</p>
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E63946]/[0.08] to-[#E63946]/[0.15] flex items-center justify-center flex-shrink-0 mb-0.5">
           {icon}
         </div>
       </div>

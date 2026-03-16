@@ -205,7 +205,7 @@ export default function SummaryPage() {
       {/* Funciones Próximas */}
       <div className="section-card">
         <div className="section-card-header !py-2 !px-3">
-          <span className="section-card-title text-sm">🎭 Funciones Próximas</span>
+          <span className="font-bold text-gray-900 text-sm">🎭 Funciones Próximas</span>
           {alertas.length > 0 && <span className="badge badge-error ml-auto text-xs">{alertas.length} alertas</span>}
         </div>
         {funcionesProximas.length > 0 && (
@@ -213,18 +213,21 @@ export default function SummaryPage() {
             {funcionesProximas.map((f) => {
               const hasAlert = alertas.some(a => a.mensaje.toLowerCase().includes(f.nombre.toLowerCase()));
               return (
-                <div key={f.id} className={`flex items-center gap-2 p-2 rounded-lg border ${hasAlert ? 'border-red-200 bg-red-50/30' : 'border-gray-100'}`}>
+                <div key={f.id} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all hover:shadow-sm ${hasAlert ? 'border-red-200 bg-red-50/30' : 'border-gray-100 bg-white'}`}>
                   {f.image_url ? (
-                    <img src={f.image_url} alt="" className="w-20 h-20 rounded-xl object-cover flex-shrink-0 shadow-sm" />
+                    <img src={f.image_url} alt="" className="w-[72px] h-[72px] rounded-xl object-cover flex-shrink-0 shadow-sm" />
                   ) : (
-                    <div className="w-20 h-20 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">🎭</div>
+                    <div className="w-[72px] h-[72px] rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-2xl">🎭</div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm truncate">{f.nombre}</p>
-                    <p className="text-xs text-gray-500 truncate">{f.hora} · {f.sala}</p>
-                    <p className={`text-xs font-medium ${f.available < 50 ? 'text-red-500' : 'text-emerald-600'}`}>{f.available} disponibles</p>
+                  <div className="flex-1 min-w-0 py-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-bold text-gray-900 text-sm truncate leading-tight">{f.nombre}</p>
+                      <span className={`text-sm font-extrabold flex-shrink-0 ${f.ocupacion >= 80 ? 'text-red-500' : f.ocupacion >= 50 ? 'text-amber-500' : 'text-gray-300'}`}>{f.ocupacion}%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{f.hora}</p>
+                    <p className="text-xs text-gray-400 truncate">{f.sala}</p>
+                    <p className={`text-xs font-semibold mt-0.5 ${f.available < 50 ? 'text-red-500' : 'text-emerald-600'}`}>{f.available} disponibles</p>
                   </div>
-                  <span className={`text-xs font-bold ${f.ocupacion >= 80 ? 'text-red-500' : f.ocupacion >= 50 ? 'text-amber-500' : 'text-gray-400'}`}>{f.ocupacion}%</span>
                 </div>
               );
             })}
@@ -238,7 +241,7 @@ export default function SummaryPage() {
         {actividadReciente.length > 0 && (
           <div className="section-card">
             <div className="section-card-header !py-2 !px-3">
-              <span className="section-card-title text-sm">⚡ Actividad Reciente</span>
+              <span className="font-bold text-gray-900 text-sm">⚡ Actividad Reciente</span>
             </div>
             <div className="divide-y divide-gray-50">
               {actividadReciente.map((a) => (
@@ -256,7 +259,7 @@ export default function SummaryPage() {
         {boletosRecientes.length > 0 && (
           <div className="section-card">
             <div className="section-card-header !py-2 !px-3">
-              <span className="section-card-title text-sm">🎫 Boletos Vendidos</span>
+              <span className="font-bold text-gray-900 text-sm">🎫 Boletos Vendidos</span>
             </div>
             <table className="w-full text-sm">
               <thead>
