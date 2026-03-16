@@ -71,6 +71,14 @@ export default function Home() {
     const init = async () => {
       // 1. Check localStorage for existing session
       const stored = localStorage.getItem("dulos_user");
+      const secVersion = localStorage.getItem("dulos_sec_v");
+      // Force re-auth if security version changed
+      if (secVersion !== "v3") {
+        localStorage.removeItem("dulos_user");
+        localStorage.removeItem("dulos_sec_v");
+        if (mounted) setLoading(false);
+        return;
+      }
       if (stored) {
         const parsed = JSON.parse(stored);
         // Re-validate against dulos_team every time
@@ -92,6 +100,7 @@ export default function Home() {
         const result = await validateTeamMember(session.user.email);
         if (result.valid) {
           localStorage.setItem("dulos_user", JSON.stringify(result.user));
+          localStorage.setItem("dulos_sec_v", "v3");
           if (mounted) { setUser(result.user); setLoading(false); }
         } else {
           // NOT authorized — sign out immediately
@@ -124,6 +133,7 @@ export default function Home() {
           const result = await validateTeamMember(u.email);
           if (result.valid) {
             localStorage.setItem("dulos_user", JSON.stringify(result.user));
+            localStorage.setItem("dulos_sec_v", "v3");
             setUser(result.user);
             setAuthError("");
           } else {
