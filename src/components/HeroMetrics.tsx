@@ -95,7 +95,7 @@ function MetricCard({ metric }: { metric: MetricData }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
       <div className="flex items-center gap-1.5 mb-2">
-        <div className="w-5 h-5 flex items-center justify-center opacity-60">{icon}</div>
+        <div className="w-6 h-6 flex items-center justify-center">{icon}</div>
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{metric.label}</p>
       </div>
       <p className="text-3xl font-black text-gray-900 tracking-tight leading-none">{metric.value}</p>
