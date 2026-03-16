@@ -3,10 +3,12 @@ import { useState } from "react";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 interface LoginPageProps {
   onLogin: (user: any) => void;
@@ -24,6 +26,7 @@ export default function LoginPage({ onLogin, authError }: LoginPageProps) {
     setError("");
     setLoading(true);
 
+    const supabase = getSupabase();
     const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authErr) {
@@ -44,8 +47,8 @@ export default function LoginPage({ onLogin, authError }: LoginPageProps) {
   const handleGoogle = async () => {
     setLoading(true);
     setError("");
-    // Clear any old session data before Google login
     localStorage.removeItem("dulos_user");
+    const supabase = getSupabase();
     const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },

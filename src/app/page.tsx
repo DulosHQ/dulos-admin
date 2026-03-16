@@ -9,10 +9,12 @@ import OpsPage from "@/pages/OpsPage";
 import AdminPage from "@/pages/AdminPage";
 import AdminShell from "@/layouts/AdminShell";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   ADMIN: ["finance.read","finance.stats.global","event.read","event.write","project.read","project.manage","inventory.read","ticket.scan","marketing.codes.manage","team.manage","sys.config","sys.audit","access.stats"],
@@ -77,7 +79,7 @@ export default function Home() {
       }
 
       // SECURITY: Always verify Supabase session FIRST — never trust localStorage alone
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSupabase().auth.getSession();
 
       if (!session?.user?.email) {
         // No valid Supabase session — clear localStorage and show login
@@ -95,7 +97,7 @@ export default function Home() {
         if (mounted) { setUser(result.user); setLoading(false); }
       } else {
         // NOT authorized — sign out and clear everything
-        await supabase.auth.signOut();
+        await getSupabase().auth.signOut();
         localStorage.removeItem("dulos_user");
         localStorage.removeItem("dulos_sec_v");
         if (mounted) { setAuthError(result.error || "Acceso denegado"); setLoading(false); }
@@ -127,7 +129,7 @@ export default function Home() {
             setAuthError("");
           } else {
             // REJECT — not in dulos_team
-            await supabase.auth.signOut();
+            await getSupabase().auth.signOut();
             localStorage.removeItem("dulos_user");
             setAuthError(result.error || "No tienes acceso al sistema.");
           }
@@ -138,7 +140,7 @@ export default function Home() {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await getSupabase().auth.signOut();
     localStorage.removeItem("dulos_user");
     setUser(null);
     setAuthError("");
