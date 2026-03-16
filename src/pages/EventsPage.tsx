@@ -16,6 +16,7 @@ interface ProjectDisplay {
   id: string;
   name: string;
   producer: string;
+  image_url: string;
   status: 'PUBLICADO' | 'BORRADOR' | 'ARCHIVADO';
   events: EventDisplay[];
 }
@@ -25,6 +26,7 @@ interface EventDisplay {
   name: string;
   venue: string;
   date: string;
+  image_url: string;
   ticketsSold: number;
   totalTickets: number;
   revenue: number;
@@ -172,6 +174,7 @@ export default function EventsPage() {
               name: event.name,
               venue: event.venue,
               date: event.dates,
+              image_url: event.image_url || '',
               ticketsSold,
               totalTickets,
               revenue,
@@ -211,6 +214,7 @@ export default function EventsPage() {
             id: name,
             name,
             producer: 'Dulos Entertainment',
+            image_url: eventsDisplay[0]?.image_url || '',
             status,
             events: eventsDisplay,
           };
@@ -301,44 +305,47 @@ export default function EventsPage() {
                 {/* Card Header (clickable) */}
                 <div
                   onClick={() => toggleExpand(project.id)}
-                  className="flex cursor-pointer items-center justify-between p-4 transition-colors hover:bg-[#f8f6f6]"
+                  className="flex cursor-pointer items-center justify-between px-3 py-2.5 transition-colors hover:bg-[#f8f6f6]"
                 >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full text-white transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                  <div className="flex items-center gap-3">
+                    <svg
+                      className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="h-5 w-5 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </div>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                    {project.image_url ? (
+                      <img src={project.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-gray-400 text-sm">🎭</span>
+                      </div>
+                    )}
                     <div>
-                      <h3 className="font-semibold text-gray-900">
+                      <h3 className="font-semibold text-gray-900 text-sm">
                         {project.name}
                       </h3>
-                      <p className="text-sm text-gray-500">{project.producer}</p>
+                      <p className="text-xs text-gray-500">{project.producer}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4">
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium text-white ${getStatusColor(project.status)}`}
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${getStatusColor(project.status)}`}
                     >
                       {project.status}
                     </span>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">
+                      <p className="font-semibold text-gray-900 text-sm">
                         {formatCurrency(totalRevenue)}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs text-gray-500">
                         {eventCount} evento{eventCount !== 1 ? 's' : ''}
                       </p>
                     </div>
