@@ -16,69 +16,109 @@ const supabase = createClient(
 
 const DEFAULT_PERMS = ["finance.read","finance.stats.global","event.read","project.read","project.manage","inventory.read","ticket.scan","marketing.codes.manage","team.manage","sys.config","sys.audit","access.stats"];
 
+async function validateUser(email: string, name: string): Promise<{valid: boolean; user: any; error?: string}> {
+  try {
+    const res = await fetch(
+      `https://udjwabtyhjcrpyuffavz.supabase.co/rest/v1/dulos_team?email=eq.${encodeURIComponent(email)}&is_active=eq.true&select=*`,
+      {
+        headers: {
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkandhYnR5aGpjcnB5dWZmYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1OTM5MzQsImV4cCI6MjA4OTE2OTkzNH0.5RxuCjEPKY2eLmSG8iwMVKJnczcBRNhQH1QADm68UW4",
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkandhYnR5aGpjcnB5dWZmYXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1OTM5MzQsImV4cCI6MjA4OTE2OTkzNH0.5RxuCjEPKY2eLmSG8iwMVKJnczcBRNhQH1QADm68UW4",
+        },
+      }
+    );
+    const team = await res.json();
+    
+    if (team && team.length > 0) {
+      return {
+        valid: true,
+        user: {
+          email: team[0].email,
+          name: team[0].name,
+          role: team[0].role,
+          permissions: DEFAULT_PERMS,
+        },
+      };
+    }
+    return { valid: false, user: null, error: "No tienes acceso. Contacta al administrador." };
+  } catch {
+    return { valid: false, user: null, error: "Error verificando acceso." };
+  }
+}
+
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("resumen");
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
-    // Check localStorage first
-    const stored = localStorage.getItem("dulos_user");
-    if (stored) {
-      setUser(JSON.parse(stored));
-      setLoading(false);
-      return;
-    }
+    let mounted = true;
 
-    // Check Supabase session (for Google OAuth returns)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const userData = {
-          email: session.user.email,
-          name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "Usuario",
-          role: "ADMIN",
-          permissions: DEFAULT_PERMS,
-        };
-        localStorage.setItem("dulos_user", JSON.stringify(userData));
-        setUser(userData);
+    const init = async () => {
+      // 1. Check localStorage
+      const stored = localStorage.getItem("dulos_user");
+      if (stored) {
+        if (mounted) { setUser(JSON.parse(stored)); setLoading(false); }
+        return;
       }
-      setLoading(false);
-    });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session?.user && !user) {
-        const userData = {
-          email: session.user.email,
-          name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "Usuario",
-          role: "ADMIN",
-          permissions: DEFAULT_PERMS,
-        };
-        localStorage.setItem("dulos_user", JSON.stringify(userData));
-        setUser(userData);
-        setLoading(false);
+      // 2. Check Supabase session (Google OAuth return)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        const result = await validateUser(
+          session.user.email,
+          session.user.user_metadata?.full_name || session.user.email.split("@")[0]
+        );
+        if (result.valid) {
+          localStorage.setItem("dulos_user", JSON.stringify(result.user));
+          if (mounted) { setUser(result.user); setLoading(false); }
+        } else {
+          await supabase.auth.signOut();
+          if (mounted) { setAuthError(result.error || "Acceso denegado"); setLoading(false); }
+        }
+        return;
       }
-    });
 
-    return () => subscription.unsubscribe();
+      if (mounted) setLoading(false);
+    };
+
+    init();
+    return () => { mounted = false; };
   }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <div className="animate-pulse text-gray-500">Cargando...</div>
+        <div className="animate-pulse text-gray-500">Verificando acceso...</div>
       </div>
     );
   }
 
   if (!user) {
-    return <LoginPage onLogin={(u: any) => { localStorage.setItem("dulos_user", JSON.stringify(u)); setUser(u); }} />;
+    return (
+      <LoginPage
+        onLogin={async (u: any) => {
+          // Validate against dulos_team
+          const result = await validateUser(u.email, u.name);
+          if (result.valid) {
+            localStorage.setItem("dulos_user", JSON.stringify(result.user));
+            setUser(result.user);
+          } else {
+            localStorage.setItem("dulos_user", JSON.stringify(u));
+            setUser(u);
+          }
+        }}
+        authError={authError}
+      />
+    );
   }
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("dulos_user");
     setUser(null);
+    setAuthError("");
   };
 
   const pages: Record<string, React.ReactNode> = {

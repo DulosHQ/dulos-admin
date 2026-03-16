@@ -10,9 +10,10 @@ const supabase = createClient(
 
 interface LoginPageProps {
   onLogin: (user: any) => void;
+  authError?: string;
 }
 
-export default function LoginPage({ onLogin }: LoginPageProps) {
+export default function LoginPage({ onLogin, authError }: LoginPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -65,6 +66,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <Image src="/dulos-logo.svg" alt="Dulos" width={180} height={56} priority />
         </div>
         <h1 className="text-white text-xl font-semibold text-center">Panel de Administración</h1>
+        {authError && <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mt-4 text-red-400 text-sm text-center">{authError}</div>}
         <p className="text-gray-500 text-sm text-center mt-1 mb-8">Ingresa tus credenciales</p>
 
         <button
