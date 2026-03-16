@@ -11,7 +11,7 @@ const PUBLIC_PATHS = [
   "/dulos-logo.svg",
 ];
 
-const ALLOWED_EMAILS = ["angel.lopez@vulkn-ai.com"];
+const ALLOWED_EMAILS = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com"];
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;

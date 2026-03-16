@@ -12,8 +12,9 @@ function getSupabase() {
 }
 
 async function validateTeamMember(email: string): Promise<{ valid: boolean; error?: string }> {
-  // HARDLOCK: Only allow specific email
-  if (email.toLowerCase() !== "angel.lopez@vulkn-ai.com") {
+  // HARDLOCK: Only allow specific emails
+  const allowedEmails = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com"];
+  if (!allowedEmails.includes(email.toLowerCase())) {
     return { valid: false, error: "Acceso denegado." };
   }
 
@@ -63,7 +64,8 @@ function LoginForm() {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       getSupabase().auth.getSession().then(({ data: { session } }) => {
-        if (session?.user?.email?.toLowerCase() === "angel.lopez@vulkn-ai.com") {
+        const allowed = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com"];
+        if (session?.user?.email && allowed.includes(session.user.email.toLowerCase())) {
           router.replace("/");
         }
       }).catch(() => {});
