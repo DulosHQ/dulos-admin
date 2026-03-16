@@ -1,3 +1,124 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* CLK/Cellosa Dashboard Design System */
+
+/* Metric Cards - Cellosa style */
+.metric-card {
+  @apply bg-white rounded-lg border border-gray-200 p-5 relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.metric-card-title {
+  @apply text-sm text-gray-500 font-medium;
+}
+
+.metric-card-value {
+  @apply text-3xl font-bold text-gray-900 mt-1;
+}
+
+.metric-card-subtitle {
+  @apply text-xs text-gray-400 mt-1;
+}
+
+.metric-card-icon {
+  @apply absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center;
+}
+
+/* Data Table - CLK/Cellosa style with dark header */
+.data-table {
+  @apply w-full text-sm;
+}
+
+.data-table thead {
+  @apply bg-[#1a1a2e] text-white;
+}
+
+.data-table thead th {
+  @apply px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider;
+}
+
+.data-table tbody tr {
+  @apply border-b border-gray-100 hover:bg-gray-50 transition-colors;
+}
+
+.data-table tbody td {
+  @apply px-4 py-3 text-gray-700;
+}
+
+.data-table tbody tr:last-child {
+  @apply border-b-0;
+}
+
+/* Total row - CLK style */
+.data-table tbody tr.total-row {
+  @apply bg-[#1a1a2e] text-white font-semibold;
+}
+
+.data-table tbody tr.total-row td {
+  @apply text-white;
+}
+
+/* Section Cards */
+.section-card {
+  @apply bg-white rounded-lg border border-gray-200 overflow-hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.section-card-header {
+  @apply px-5 py-4 border-b border-gray-100 flex items-center gap-2;
+}
+
+.section-card-title {
+  @apply text-sm font-semibold text-gray-800 flex items-center gap-2;
+}
+
+.section-card-body {
+  @apply p-5;
+}
+
+/* Status Badges - Cellosa style */
+.badge {
+  @apply inline-flex items-center px-2.5 py-1 rounded text-xs font-medium;
+}
+
+.badge-success {
+  @apply bg-emerald-50 text-emerald-600;
+}
+
+.badge-warning {
+  @apply bg-amber-50 text-amber-600;
+}
+
+.badge-error {
+  @apply bg-red-50 text-red-600;
+}
+
+.badge-info {
+  @apply bg-blue-50 text-blue-600;
+}
+
+/* Percentage highlights - CLK style */
+.pct-negative {
+  @apply text-red-500 font-medium;
+}
+
+.pct-positive {
+  @apply text-emerald-500 font-medium;
+}
+
+/* Hide scrollbar but allow scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth transitions */
+* {
+  @apply transition-colors duration-150;
+}

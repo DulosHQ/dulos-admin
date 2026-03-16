@@ -134,9 +134,11 @@ function formatTimeAgo(dateString: string): string {
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
-      <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-      <div className="space-y-3">
+    <div className="section-card animate-pulse">
+      <div className="section-card-header">
+        <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+      </div>
+      <div className="section-card-body space-y-3">
         <div className="h-3 bg-gray-200 rounded w-full"></div>
         <div className="h-3 bg-gray-200 rounded w-5/6"></div>
         <div className="h-3 bg-gray-200 rounded w-4/6"></div>
@@ -147,9 +149,9 @@ function SkeletonCard() {
 
 function SkeletonMetrics() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-pulse">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div key={i} className="metric-card">
           <div className="h-3 bg-gray-200 rounded w-2/3 mb-3"></div>
           <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
           <div className="h-2 bg-gray-200 rounded w-1/4"></div>
@@ -327,118 +329,177 @@ export default function SummaryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f8f6f6] p-6">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Panel de Control</h1>
-            <p className="text-gray-500 mt-1">Resumen de operaciones de boletería</p>
-          </div>
-          <SkeletonMetrics />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
+      <div className="space-y-6">
+        <SkeletonMetrics />
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6f6] p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Panel de Control</h1>
-          <p className="text-gray-500 mt-1">Resumen de operaciones de boletería</p>
-        </div>
+    <div className="space-y-6">
+      {/* Hero Metrics - Cellosa style cards */}
+      <HeroMetrics
+        revenue={metrics.revenue}
+        tickets={metrics.tickets}
+        occupancy={metrics.occupancy}
+        upcoming={metrics.upcoming}
+      />
 
-        <HeroMetrics
-          revenue={metrics.revenue}
-          tickets={metrics.tickets}
-          occupancy={metrics.occupancy}
-          upcoming={metrics.upcoming}
-        />
-
-        {/* Sección de Alertas */}
-        <div className="bg-[#111] rounded-xl border border-white/5 p-4">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Alertas</h2>
-          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-            {alertas.map((alerta) => (
-              <div key={alerta.id} className={`flex items-center gap-2 py-1.5 px-2 rounded-lg ${
-                alerta.tipo === "critico" ? "bg-red-500/10" : alerta.tipo === "warning" ? "bg-yellow-500/10" : "bg-blue-500/10"
-              }`}>
-                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                  alerta.tipo === "critico" ? "bg-red-400" : alerta.tipo === "warning" ? "bg-yellow-400" : "bg-blue-400"
-                }`} />
-                <span className="text-xs text-gray-300 truncate">{alerta.mensaje}</span>
-              </div>
-            ))}
+      {/* Alertas Section - Cellosa style card */}
+      {alertas.length > 0 && (
+        <div className="section-card">
+          <div className="section-card-header">
+            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span className="section-card-title">Alertas Activas</span>
+            <span className="badge badge-error ml-auto">{alertas.filter(a => a.tipo === 'critico').length} críticas</span>
           </div>
-        </div>
-
-        {/* Sección de Funciones Próximas */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Funciones Próximas</h2>
-          <div className="space-y-3">
-            {funcionesProximas.map((funcion) => (
-              <div key={funcion.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  {funcion.image_url && (
-                    <img src={funcion.image_url} alt={funcion.nombre} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 text-sm">{funcion.nombre}</p>
-                    <p className="text-xs text-gray-500">{funcion.hora} • {funcion.sala}</p>
-                  </div>
+          <div className="section-card-body">
+            <div className="space-y-2">
+              {alertas.map((alerta) => (
+                <div key={alerta.id} className={`flex items-center gap-3 py-2 px-3 rounded-lg ${
+                  alerta.tipo === "critico" ? "bg-red-50" : alerta.tipo === "warning" ? "bg-amber-50" : "bg-blue-50"
+                }`}>
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    alerta.tipo === "critico" ? "bg-red-500" : alerta.tipo === "warning" ? "bg-amber-500" : "bg-blue-500"
+                  }`} />
+                  <span className="text-sm text-gray-700">{alerta.mensaje}</span>
                 </div>
-                <div className="flex items-center gap-4 w-full sm:w-48">
-                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${getOcupacionColor(funcion.ocupacion)} rounded-full`}
-                      style={{ width: `${funcion.ocupacion}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 w-10 text-right">
-                    {funcion.ocupacion}%
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Two-column layout for Funciones and Actividad */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Funciones Próximas - CLK style table */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="section-card-title">Funciones Próximas</span>
+          </div>
+          <div className="overflow-hidden">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Evento</th>
+                  <th>Horario</th>
+                  <th>Ocupación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funcionesProximas.map((funcion) => (
+                  <tr key={funcion.id}>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        {funcion.image_url && (
+                          <img src={funcion.image_url} alt="" className="w-8 h-8 rounded object-cover" />
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{funcion.nombre}</p>
+                          <p className="text-xs text-gray-500">{funcion.sala}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="text-sm">{funcion.hora}</td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${getOcupacionColor(funcion.ocupacion)} rounded-full`}
+                            style={{ width: `${funcion.ocupacion}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-medium ${funcion.ocupacion >= 80 ? 'pct-negative' : 'text-gray-600'}`}>
+                          {funcion.ocupacion}%
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Sección de Actividad Reciente */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Actividad Reciente</h2>
-          <div className="space-y-2">
-            {actividadReciente.map((actividad) => (
-              <div key={actividad.id} className="flex items-center gap-2">
-                <span className="text-sm flex-shrink-0">{getActividadEmoji(actividad.tipo)}</span>
-                <p className="flex-1 text-sm text-gray-700 truncate">{actividad.mensaje}</p>
-                <span className="text-xs text-gray-400 flex-shrink-0">{actividad.tiempo}</span>
-              </div>
-            ))}
+        {/* Actividad Reciente */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span className="section-card-title">Actividad Reciente</span>
+          </div>
+          <div className="section-card-body">
+            <div className="space-y-3">
+              {actividadReciente.map((actividad) => (
+                <div key={actividad.id} className="flex items-center gap-3">
+                  <span className="text-base flex-shrink-0">{getActividadEmoji(actividad.tipo)}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-700 truncate">{actividad.mensaje}</p>
+                  </div>
+                  <span className="text-xs text-gray-400 flex-shrink-0">{actividad.tiempo}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Sección de Clientes Recientes */}
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Clientes Recientes</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {clientes.map((cliente) => (
-              <div key={cliente.id} className="bg-white rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="rounded-full bg-[#E63946] text-white w-10 h-10 flex items-center justify-center font-bold">
-                    {cliente.nombre.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-900">{cliente.nombre}</p>
-                    <p className="text-gray-500 text-sm">{cliente.email}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 mb-2">{cliente.ordenes} órdenes · ${cliente.gastado.toLocaleString()} gastado · {cliente.boletos} boletos</p>
-                <button onClick={() => alert(`Detalle de ${cliente.nombre}`)} className="text-sm text-[#E63946]">Ver detalle</button>
-              </div>
-            ))}
-          </div>
+      {/* Clientes Recientes - Cellosa style table */}
+      <div className="section-card">
+        <div className="section-card-header">
+          <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span className="section-card-title">Clientes Recientes</span>
+        </div>
+        <div className="overflow-hidden">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Órdenes</th>
+                <th>Total Gastado</th>
+                <th>Boletos</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientes.map((cliente) => (
+                <tr key={cliente.id}>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#E63946] flex items-center justify-center text-white text-sm font-semibold">
+                        {cliente.nombre.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{cliente.nombre}</p>
+                        <p className="text-xs text-gray-500">{cliente.email}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="text-sm">{cliente.ordenes}</td>
+                  <td className="text-sm font-medium">${cliente.gastado.toLocaleString()}</td>
+                  <td className="text-sm">{cliente.boletos}</td>
+                  <td>
+                    <button
+                      onClick={() => alert(`Detalle de ${cliente.nombre}`)}
+                      className="text-sm text-[#E63946] hover:underline"
+                    >
+                      Ver detalle
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
