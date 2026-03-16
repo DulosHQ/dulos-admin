@@ -71,37 +71,24 @@ export default function Home() {
     let mounted = true;
 
     const init = async () => {
-      const secVersion = localStorage.getItem("dulos_sec_v");
-      // Force re-auth if security version changed
-      if (secVersion !== "v4") {
-        localStorage.removeItem("dulos_user");
-        localStorage.removeItem("dulos_sec_v");
-      }
-
-      // SECURITY: Always verify Supabase session FIRST — never trust localStorage alone
+      // Middleware already verified auth — just get the session
       const { data: { session } } = await getSupabase().auth.getSession();
 
       if (!session?.user?.email) {
-        // No valid Supabase session — redirect to login
-        localStorage.removeItem("dulos_user");
-        localStorage.removeItem("dulos_sec_v");
         if (mounted) router.push("/login");
         return;
       }
 
-      // Valid Supabase session — now validate against dulos_team
-      const result = await validateTeamMember(session.user.email);
-      if (result.valid) {
-        localStorage.setItem("dulos_user", JSON.stringify(result.user));
-        localStorage.setItem("dulos_sec_v", "v4");
-        if (mounted) { setUser(result.user); setLoading(false); }
-      } else {
-        // NOT authorized — sign out and redirect to login
-        await getSupabase().auth.signOut();
-        localStorage.removeItem("dulos_user");
-        localStorage.removeItem("dulos_sec_v");
-        if (mounted) router.push("/login");
-      }
+      const email = session.user.email.toLowerCase();
+      // Set user from session directly — middleware already validated dulos_team
+      const userObj = {
+        email,
+        name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0],
+        role: "ADMIN",
+        permissions: ROLE_PERMISSIONS["ADMIN"] || [],
+      };
+
+      if (mounted) { setUser(userObj); setLoading(false); }
     };
 
     init();
