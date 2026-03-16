@@ -76,6 +76,7 @@ export default function SummaryPage() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [funcionesProximas, setFuncionesProximas] = useState<{ id: number; nombre: string; hora: string; sala: string; ocupacion: number; available: number; image_url: string }[]>([]);
   const [actividadReciente, setActividadReciente] = useState<Actividad[]>([]);
+  const [ventasRecientes, setVentasRecientes] = useState<{ id: string; cliente: string; evento: string; zona: string; total: number; fecha: string }[]>([]);
 
   useEffect(() => {
     async function loadData() {
@@ -152,6 +153,17 @@ export default function SummaryPage() {
         });
 
         setActividadReciente(actividades.slice(0, 8));
+
+        // Ventas recientes from orders
+        setVentasRecientes(orders.filter(o => o.customer_name).slice(0, 6).map(o => ({
+          id: o.order_number,
+          cliente: o.customer_name || 'Anónimo',
+          evento: eventMap.get(o.event_id)?.name || o.event_id,
+          zona: o.zone_name,
+          total: o.total_price,
+          fecha: formatTimeAgo(o.purchased_at),
+        })));
+
         setLoading(false);
       } catch (err) {
         console.error('Error loading dashboard:', err);
@@ -193,9 +205,9 @@ export default function SummaryPage() {
                     <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-sm">🎭</div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-xs truncate">{f.nombre}</p>
-                    <p className="text-[11px] text-gray-500 truncate">{f.hora} · {f.sala}</p>
-                    <p className={`text-[11px] font-medium ${f.available < 50 ? 'text-red-500' : 'text-emerald-600'}`}>{f.available} disponibles</p>
+                    <p className="font-semibold text-gray-900 text-sm truncate">{f.nombre}</p>
+                    <p className="text-xs text-gray-500 truncate">{f.hora} · {f.sala}</p>
+                    <p className={`text-xs font-medium ${f.available < 50 ? 'text-red-500' : 'text-emerald-600'}`}>{f.available} disponibles</p>
                   </div>
                   <span className={`text-xs font-bold ${f.ocupacion >= 80 ? 'text-red-500' : f.ocupacion >= 50 ? 'text-amber-500' : 'text-gray-400'}`}>{f.ocupacion}%</span>
                 </div>
@@ -205,23 +217,55 @@ export default function SummaryPage() {
         )}
       </div>
 
-      {/* Actividad Reciente */}
-      {actividadReciente.length > 0 && (
-        <div className="section-card">
-          <div className="section-card-header !py-2 !px-3">
-            <span className="section-card-title text-sm">⚡ Actividad Reciente</span>
+      {/* Actividad + Ventas side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Actividad Reciente */}
+        {actividadReciente.length > 0 && (
+          <div className="section-card">
+            <div className="section-card-header !py-2 !px-3">
+              <span className="section-card-title text-sm">⚡ Actividad Reciente</span>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {actividadReciente.map((a) => (
+                <div key={a.id} className="flex items-center gap-2 px-3 py-1.5">
+                  <span className="text-sm">{getActividadEmoji(a.tipo)}</span>
+                  <p className="flex-1 text-sm text-gray-700 truncate">{a.mensaje}</p>
+                  <span className="text-xs text-gray-400 tabular-nums">{a.tiempo}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="divide-y divide-gray-50">
-            {actividadReciente.map((a) => (
-              <div key={a.id} className="flex items-center gap-2 px-3 py-1.5">
-                <span className="text-xs">{getActividadEmoji(a.tipo)}</span>
-                <p className="flex-1 text-xs text-gray-700 truncate">{a.mensaje}</p>
-                <span className="text-[11px] text-gray-400 tabular-nums">{a.tiempo}</span>
-              </div>
-            ))}
+        )}
+
+        {/* Ventas Recientes */}
+        {ventasRecientes.length > 0 && (
+          <div className="section-card">
+            <div className="section-card-header !py-2 !px-3">
+              <span className="section-card-title text-sm">💰 Ventas Recientes</span>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-gray-500 border-b">
+                  <th className="px-3 py-1.5 font-medium">Cliente</th>
+                  <th className="px-3 py-1.5 font-medium">Evento</th>
+                  <th className="px-3 py-1.5 font-medium">Zona</th>
+                  <th className="px-3 py-1.5 font-medium text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ventasRecientes.map((v) => (
+                  <tr key={v.id} className="border-b border-gray-50 last:border-0">
+                    <td className="px-3 py-1.5 text-gray-900">{v.cliente}</td>
+                    <td className="px-3 py-1.5 text-gray-600 truncate max-w-[120px]">{v.evento}</td>
+                    <td className="px-3 py-1.5 text-gray-500">{v.zona}</td>
+                    <td className="px-3 py-1.5 text-right font-medium text-gray-900">${v.total.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

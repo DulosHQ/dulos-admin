@@ -95,21 +95,15 @@ function MetricCard({ metric }: { metric: MetricData }) {
 
   return (
     <div className="metric-card group">
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">{metric.label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1.5">{metric.value}</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{metric.value}</p>
         </div>
-        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#E63946]/[0.08] to-[#E63946]/[0.15] flex items-center justify-center flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63946]/[0.08] to-[#E63946]/[0.15] flex items-center justify-center flex-shrink-0">
           {icon}
         </div>
       </div>
-      <p className="text-xs mt-2">
-        <span className={metric.trend.isPositive ? 'text-emerald-500 font-semibold' : 'text-red-500 font-semibold'}>
-          {metric.trend.isPositive ? '+' : ''}{metric.trend.value}%
-        </span>
-        <span className="text-gray-400 ml-1">vs periodo anterior</span>
-      </p>
     </div>
   );
 }

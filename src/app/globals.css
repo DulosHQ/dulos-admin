@@ -6,7 +6,7 @@
 
 /* Metric Cards - Cellosa style */
 .metric-card {
-  @apply bg-white rounded-lg border border-gray-200 p-4 relative;
+  @apply bg-white rounded-lg border border-gray-200 p-3 relative;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
