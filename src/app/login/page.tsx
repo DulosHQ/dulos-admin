@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
 
@@ -10,16 +11,56 @@ function getSupabase() {
   );
 }
 
-interface LoginPageProps {
-  onLogin: (user: any) => void;
-  authError?: string;
+async function validateTeamMember(email: string): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/dulos_team?email=eq.${encodeURIComponent(email)}&select=email,is_active`,
+      {
+        headers: {
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+        },
+      }
+    );
+    const team = await res.json();
+
+    if (!team || team.length === 0) {
+      return { valid: false, error: "No tienes acceso al sistema. Contacta al administrador." };
+    }
+
+    if (!team[0].is_active) {
+      return { valid: false, error: "Tu cuenta ha sido desactivada." };
+    }
+
+    return { valid: true };
+  } catch {
+    return { valid: false, error: "Error de conexión. Intenta de nuevo." };
+  }
 }
 
-export default function LoginPage({ onLogin, authError }: LoginPageProps) {
+export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Check if already logged in on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await getSupabase().auth.getSession();
+      if (session?.user?.email) {
+        const result = await validateTeamMember(session.user.email);
+        if (result.valid) {
+          router.push("/");
+          return;
+        }
+      }
+      setCheckingSession(false);
+    };
+    checkSession();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,13 +76,20 @@ export default function LoginPage({ onLogin, authError }: LoginPageProps) {
       return;
     }
 
-    if (data.user) {
-      onLogin({
-        email: data.user.email,
-        name: data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "Usuario",
-      });
+    if (data.user?.email) {
+      // Validate against dulos_team
+      const result = await validateTeamMember(data.user.email);
+      if (result.valid) {
+        localStorage.setItem("dulos_sec_v", "v4");
+        router.push("/");
+      } else {
+        await supabase.auth.signOut();
+        setError(result.error || "No tienes acceso al sistema.");
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleGoogle = async () => {
@@ -51,7 +99,7 @@ export default function LoginPage({ onLogin, authError }: LoginPageProps) {
     const supabase = getSupabase();
     const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (oauthErr) {
       setError("Error al conectar con Google");
@@ -59,7 +107,13 @@ export default function LoginPage({ onLogin, authError }: LoginPageProps) {
     }
   };
 
-  const displayError = error || authError;
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="animate-pulse text-gray-500">Verificando sesión...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center px-4">
@@ -70,9 +124,9 @@ export default function LoginPage({ onLogin, authError }: LoginPageProps) {
         <h1 className="text-white text-xl font-semibold text-center">Panel de Administración</h1>
         <p className="text-gray-500 text-sm text-center mt-1 mb-6">Acceso exclusivo para personal autorizado</p>
 
-        {displayError && (
+        {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-6 text-red-400 text-sm text-center">
-            🔒 {displayError}
+            {error}
           </div>
         )}
 

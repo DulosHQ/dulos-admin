@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import LoginPage from "@/pages/LoginPage";
 import SummaryPage from "@/pages/SummaryPage";
 import FinancePage from "@/pages/FinancePage";
 import EventsPage from "@/pages/EventsPage";
@@ -62,10 +62,10 @@ async function validateTeamMember(email: string): Promise<{ valid: boolean; user
 }
 
 export default function Home() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("resumen");
   const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -82,10 +82,10 @@ export default function Home() {
       const { data: { session } } = await getSupabase().auth.getSession();
 
       if (!session?.user?.email) {
-        // No valid Supabase session — clear localStorage and show login
+        // No valid Supabase session — redirect to login
         localStorage.removeItem("dulos_user");
         localStorage.removeItem("dulos_sec_v");
-        if (mounted) setLoading(false);
+        if (mounted) router.push("/login");
         return;
       }
 
@@ -96,17 +96,24 @@ export default function Home() {
         localStorage.setItem("dulos_sec_v", "v4");
         if (mounted) { setUser(result.user); setLoading(false); }
       } else {
-        // NOT authorized — sign out and clear everything
+        // NOT authorized — sign out and redirect to login
         await getSupabase().auth.signOut();
         localStorage.removeItem("dulos_user");
         localStorage.removeItem("dulos_sec_v");
-        if (mounted) { setAuthError(result.error || "Acceso denegado"); setLoading(false); }
+        if (mounted) router.push("/login");
       }
     };
 
     init();
     return () => { mounted = false; };
-  }, []);
+  }, [router]);
+
+  const handleLogout = async () => {
+    await getSupabase().auth.signOut();
+    localStorage.removeItem("dulos_user");
+    localStorage.removeItem("dulos_sec_v");
+    router.push("/login");
+  };
 
   if (loading) {
     return (
@@ -118,33 +125,11 @@ export default function Home() {
 
   if (!user) {
     return (
-      <LoginPage
-        onLogin={async (u: any) => {
-          // ALWAYS validate against dulos_team — NO exceptions
-          const result = await validateTeamMember(u.email);
-          if (result.valid) {
-            localStorage.setItem("dulos_user", JSON.stringify(result.user));
-            localStorage.setItem("dulos_sec_v", "v4");
-            setUser(result.user);
-            setAuthError("");
-          } else {
-            // REJECT — not in dulos_team
-            await getSupabase().auth.signOut();
-            localStorage.removeItem("dulos_user");
-            setAuthError(result.error || "No tienes acceso al sistema.");
-          }
-        }}
-        authError={authError}
-      />
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="animate-pulse text-gray-500">Redirigiendo...</div>
+      </div>
     );
   }
-
-  const handleLogout = async () => {
-    await getSupabase().auth.signOut();
-    localStorage.removeItem("dulos_user");
-    setUser(null);
-    setAuthError("");
-  };
 
   const pages: Record<string, React.ReactNode> = {
     resumen: <SummaryPage />,

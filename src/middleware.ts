@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 
 // Routes that don't require authentication
 const PUBLIC_PATHS = [
+  "/login",
   "/auth/callback",
   "/_next/",
   "/favicon",
@@ -13,7 +14,7 @@ const PUBLIC_PATHS = [
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Allow public paths
+  // Allow public paths and static assets (files with extensions)
   if (PUBLIC_PATHS.some((p) => path.startsWith(p)) || path.includes(".")) {
     return NextResponse.next();
   }
@@ -48,11 +49,7 @@ export async function middleware(request: NextRequest) {
 
   // No valid session - redirect to login
   if (!user?.email) {
-    // Allow login page to render
-    if (path === "/") {
-      return response;
-    }
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // User is authenticated - now verify they're in dulos_team
@@ -69,22 +66,22 @@ export async function middleware(request: NextRequest) {
 
     if (!teamCheckResponse.ok) {
       console.error("Failed to check dulos_team:", teamCheckResponse.status);
-      return NextResponse.redirect(new URL("/?error=unauthorized", request.url));
+      return NextResponse.redirect(new URL("/login?error=unauthorized", request.url));
     }
 
     const team = await teamCheckResponse.json();
 
     // Not in team or not active
     if (!team || team.length === 0 || !team[0].is_active) {
-      return NextResponse.redirect(new URL("/?error=unauthorized", request.url));
+      return NextResponse.redirect(new URL("/login?error=unauthorized", request.url));
     }
 
     // Valid team member - allow request
-    response.headers.set("X-Dulos-Security", "v4");
+    response.headers.set("X-Dulos-Security", "v5");
     return response;
   } catch (error) {
     console.error("Middleware team check error:", error);
-    return NextResponse.redirect(new URL("/?error=unauthorized", request.url));
+    return NextResponse.redirect(new URL("/login?error=unauthorized", request.url));
   }
 }
 
