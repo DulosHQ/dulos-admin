@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   "/_next/",
   "/favicon",
   "/api/webhooks/stripe",
+  "/dulos-logo.svg",
 ];
 
 const ALLOWED_EMAILS = ["angel.lopez@vulkn-ai.com"];
@@ -15,10 +16,12 @@ const ALLOWED_EMAILS = ["angel.lopez@vulkn-ai.com"];
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
+  // Allow public paths and static files
   if (PUBLIC_PATHS.some((p) => path.startsWith(p)) || path.includes(".")) {
     return NextResponse.next();
   }
 
+  // Create mutable response to pass cookies through
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
@@ -32,6 +35,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // Update cookies on both request (for downstream) and response (for browser)
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
             response.cookies.set(name, value, options);
@@ -41,17 +45,25 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // IMPORTANT: Use getUser() not getSession() for security
+  // getUser() validates the JWT against Supabase, getSession() only reads from cookie
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!user?.email) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (error || !user?.email) {
+    // No valid session - redirect to login
+    const url = new URL("/login", request.url);
+    return NextResponse.redirect(url);
   }
 
   if (!ALLOWED_EMAILS.includes(user.email.toLowerCase())) {
-    return NextResponse.redirect(new URL("/login?error=unauthorized", request.url));
+    // Valid session but not authorized - redirect with error
+    const url = new URL("/login", request.url);
+    url.searchParams.set("error", "unauthorized");
+    return NextResponse.redirect(url);
   }
 
-  response.headers.set("X-Dulos-Security", "v6");
+  // User is authenticated and authorized
+  response.headers.set("X-Dulos-Security", "v7");
   return response;
 }
 

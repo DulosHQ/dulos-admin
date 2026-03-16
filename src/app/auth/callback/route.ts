@@ -21,6 +21,9 @@ export async function GET(request: NextRequest) {
 
   const cookieStore = await cookies();
 
+  // Track cookies that need to be set on the response
+  const cookiesToSetOnResponse: Array<{ name: string; value: string; options?: Record<string, unknown> }> = [];
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,8 +33,15 @@ export async function GET(request: NextRequest) {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
+          // Store cookies to set on the redirect response later
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
+            cookiesToSetOnResponse.push({ name, value, options });
+            // Also try to set via cookieStore for good measure
+            try {
+              cookieStore.set(name, value, options);
+            } catch {
+              // This may fail in some contexts, but we have the backup above
+            }
           });
         },
       },
@@ -47,9 +57,21 @@ export async function GET(request: NextRequest) {
 
   const email = data.session?.user?.email?.toLowerCase();
   if (!email || email !== "angel.lopez@vulkn-ai.com") {
+    // Sign out and clear any cookies that were set
     await supabase.auth.signOut();
-    return NextResponse.redirect(`${origin}/login?error=acceso_denegado`);
+    const response = NextResponse.redirect(`${origin}/login?error=acceso_denegado`);
+    // Clear auth cookies on denial
+    cookiesToSetOnResponse.forEach(({ name }) => {
+      response.cookies.delete(name);
+    });
+    return response;
   }
 
-  return NextResponse.redirect(`${origin}/`);
+  // Create redirect response and attach all session cookies
+  const response = NextResponse.redirect(`${origin}/`);
+  cookiesToSetOnResponse.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options as Record<string, unknown>);
+  });
+
+  return response;
 }
