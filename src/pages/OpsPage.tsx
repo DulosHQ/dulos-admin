@@ -74,23 +74,28 @@ export default function OpsPage() {
           fetchAllCoupons(),
         ])
 
-        // Map checkins to display format
-        const checkInsDisplay: CheckinDisplay[] = checkinsData.slice(0, 5).map((c) => ({
-          nombre: c.customer_name,
-          ticket: c.ticket_number,
-          hora: formatTime(c.scanned_at),
-          ok: c.status === 'success' || c.status === 'valid',
-        }))
+        // Map checkins to display format — filter out DUPLICADO/null
+        const checkInsDisplay: CheckinDisplay[] = checkinsData
+          .filter((c) => c.customer_name && c.customer_name !== 'DUPLICADO')
+          .slice(0, 5)
+          .map((c) => ({
+            nombre: c.customer_name,
+            ticket: c.ticket_number,
+            hora: formatTime(c.scanned_at),
+            ok: c.status === 'success' || c.status === 'valid',
+          }))
         setCheckIns(checkInsDisplay)
 
-        // Map checkins to historial format
-        const historialDisplay: HistorialDisplay[] = checkinsData.map((c) => ({
-          ticket: c.ticket_number,
-          cliente: c.customer_name,
-          evento: c.event_name,
-          hora: formatTime(c.scanned_at),
-          ok: c.status === 'success' || c.status === 'valid',
-        }))
+        // Map checkins to historial format — show 'Check-in duplicado' for DUPLICADO, filter null
+        const historialDisplay: HistorialDisplay[] = checkinsData
+          .filter((c) => c.customer_name != null)
+          .map((c) => ({
+            ticket: c.ticket_number,
+            cliente: c.customer_name === 'DUPLICADO' ? 'Check-in duplicado' : c.customer_name,
+            evento: c.event_name,
+            hora: formatTime(c.scanned_at),
+            ok: c.status === 'success' || c.status === 'valid',
+          }))
         setHistorial(historialDisplay)
 
         // Get unique events
@@ -226,75 +231,76 @@ export default function OpsPage() {
         </div>
 
         {activeTab === 'Scanner' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-white shadow-sm text-sm font-medium text-gray-700">Check-ins hoy: {checkInCount}</span>
+              <span className="px-3 py-1 rounded-full bg-green-50 text-sm font-medium text-green-700">Exitosos: {historial.filter(h => h.ok).length}</span>
+              <span className="px-3 py-1 rounded-full bg-red-50 text-sm font-medium text-red-700">Fallidos: {historial.filter(h => !h.ok).length}</span>
+              <span className="px-3 py-1 rounded-full bg-gray-100 text-sm font-medium text-gray-600">{Math.round((checkInCount / 1200) * 100)}% capacidad</span>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm p-3">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">📷</span>
+                {cameraActive ? (
+                  <div className="flex-1 flex items-center gap-3">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-48 h-28 rounded-lg bg-black object-cover"
+                    />
+                    <button
+                      onClick={stopCamera}
+                      className="px-3 py-1.5 bg-[#E63946] text-white rounded-lg text-sm font-medium hover:bg-[#c5303c] transition-colors cursor-pointer"
+                    >
+                      Detener
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center gap-3">
+                    <input
+                      type="text"
+                      placeholder="Escanear codigo QR o ingresar ticket..."
+                      className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E63946]"
+                    />
+                    <button
+                      onClick={startCamera}
+                      className="px-3 py-1.5 bg-[#E63946] text-white rounded-lg text-sm font-medium hover:bg-[#c5303c] transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      Escanear QR
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Check-ins hoy: {checkInCount} / 1,200 ({Math.round((checkInCount / 1200) * 100)}%)</span>
-              </div>
-              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-[#E63946] rounded-full transition-all" style={{ width: `${(checkInCount / 1200) * 100}%` }} />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-gray-900 rounded-xl aspect-video flex flex-col items-center justify-center gap-4 p-6 relative overflow-hidden">
-              {cameraActive ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full rounded-xl bg-black aspect-video object-cover"
-                  />
-                  <button
-                    onClick={stopCamera}
-                    className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-[#E63946] text-white rounded-lg font-medium hover:bg-[#c5303c] transition-colors cursor-pointer"
-                  >
-                    Detener
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="text-6xl">📷</span>
-                  <p className="text-white text-lg">QR Scanner</p>
-                  <p className="text-gray-400 text-sm text-center">Apunta al codigo QR del boleto</p>
-                  <button
-                    onClick={startCamera}
-                    className="px-4 py-2 bg-[#E63946] text-white rounded-lg font-medium hover:bg-[#c5303c] transition-colors cursor-pointer"
-                  >
-                    Iniciar Camara
-                  </button>
-                </>
-              )}
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Check-ins Recientes</h3>
-              <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Check-ins Recientes</h3>
+              <div className="space-y-2">
                 {checkIns.length > 0 ? checkIns.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-[#f8f6f6] rounded-lg">
+                  <div key={i} className="flex items-center justify-between p-2 bg-[#f8f6f6] rounded-lg">
                     <div>
-                      <p className="font-medium text-gray-900">{c.nombre}</p>
-                      <p className="text-sm text-gray-500">{c.ticket}</p>
+                      <p className="font-medium text-gray-900 text-sm">{c.nombre}</p>
+                      <p className="text-xs text-gray-500">{c.ticket}</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-500">{c.hora}</span>
-                      <span className={c.ok ? 'text-green-500 text-xl' : 'text-red-500 text-xl'}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">{c.hora}</span>
+                      <span className={c.ok ? 'text-green-500' : 'text-red-500'}>
                         {c.ok ? '\u2713' : '\u2717'}
                       </span>
                     </div>
                   </div>
                 )) : (
-                  <p className="text-gray-500 text-center py-4">No hay check-ins recientes</p>
+                  <p className="text-gray-500 text-center py-4 text-sm">No hay check-ins recientes</p>
                 )}
               </div>
             </div>
           </div>
-          </div>
         )}
 
         {activeTab === 'Historial' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-3 bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row gap-4">
                 <select
                   value={filtroEvento}
@@ -345,36 +351,34 @@ export default function OpsPage() {
                 </tbody>
               </table>
             </div>
-            <div>
-              <h3 className="text-lg font-bold mb-4">Reportes de Acceso</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-xl p-6 shadow-sm">
-                  <h4 className="font-semibold text-gray-900 mb-4">Check-ins por Evento</h4>
-                  {eventStats.length > 0 ? eventStats.map(d => (
-                    <div key={d.n} className="flex items-center gap-3 mb-2">
-                      <span className="text-sm text-gray-600 w-20 truncate">{d.n}</span>
-                      <div className="flex-1 h-5 bg-gray-100 rounded"><div className="h-full rounded" style={{ width: `${d.p}%`, backgroundColor: '#E63946' }} /></div>
-                      <span className="text-sm text-gray-600 w-10">{d.p}%</span>
-                    </div>
-                  )) : (
-                    <p className="text-gray-500 text-sm">No hay datos disponibles</p>
-                  )}
-                </div>
-                <div className="bg-white rounded-xl p-6 shadow-sm">
-                  <h4 className="font-semibold text-gray-900 mb-4">Resumen</h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total check-ins</span>
-                      <span className="font-bold">{totalCheckins}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Exitosos</span>
-                      <span className="font-bold text-green-600">{historial.filter(h => h.ok).length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Fallidos</span>
-                      <span className="font-bold text-red-600">{historial.filter(h => !h.ok).length}</span>
-                    </div>
+            <div className="lg:col-span-2 space-y-4">
+              <h3 className="text-sm font-bold">Reportes de Acceso</h3>
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <h4 className="font-semibold text-gray-900 text-sm mb-3">Check-ins por Evento</h4>
+                {eventStats.length > 0 ? eventStats.map(d => (
+                  <div key={d.n} className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-gray-600 w-16 truncate">{d.n}</span>
+                    <div className="flex-1 h-4 bg-gray-100 rounded"><div className="h-full rounded" style={{ width: `${d.p}%`, backgroundColor: '#E63946' }} /></div>
+                    <span className="text-xs text-gray-600 w-8">{d.p}%</span>
+                  </div>
+                )) : (
+                  <p className="text-gray-500 text-sm">No hay datos disponibles</p>
+                )}
+              </div>
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <h4 className="font-semibold text-gray-900 text-sm mb-3">Resumen</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Total check-ins</span>
+                    <span className="font-bold">{totalCheckins}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Exitosos</span>
+                    <span className="font-bold text-green-600">{historial.filter(h => h.ok).length}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Fallidos</span>
+                    <span className="font-bold text-red-600">{historial.filter(h => !h.ok).length}</span>
                   </div>
                 </div>
               </div>
