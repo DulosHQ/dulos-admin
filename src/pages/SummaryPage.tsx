@@ -74,11 +74,11 @@ const mockAlertas: Alerta[] = [
 ];
 
 const mockFuncionesProximas = [
-  { id: 1, nombre: 'Romeo y Julieta', hora: '18:00', sala: 'Sala Principal', ocupacion: 95 },
-  { id: 2, nombre: 'El Fantasma de la Ópera', hora: '19:30', sala: 'Sala A', ocupacion: 78 },
-  { id: 3, nombre: 'Los Miserables', hora: '20:00', sala: 'Sala B', ocupacion: 45 },
-  { id: 4, nombre: 'Cats', hora: '20:30', sala: 'Sala Principal', ocupacion: 62 },
-  { id: 5, nombre: 'Chicago', hora: '21:00', sala: 'Sala C', ocupacion: 28 },
+  { id: 1, nombre: 'Romeo y Julieta', hora: '18:00', sala: 'Sala Principal', ocupacion: 95, image_url: '' },
+  { id: 2, nombre: 'El Fantasma de la Ópera', hora: '19:30', sala: 'Sala A', ocupacion: 78, image_url: '' },
+  { id: 3, nombre: 'Los Miserables', hora: '20:00', sala: 'Sala B', ocupacion: 45, image_url: '' },
+  { id: 4, nombre: 'Cats', hora: '20:30', sala: 'Sala Principal', ocupacion: 62, image_url: '' },
+  { id: 5, nombre: 'Chicago', hora: '21:00', sala: 'Sala C', ocupacion: 28, image_url: '' },
 ];
 
 const mockActividadReciente = [
@@ -101,20 +101,20 @@ function getOcupacionColor(ocupacion: number): string {
   return 'bg-green-500';
 }
 
-function getActividadColor(tipo: string): string {
+function getActividadEmoji(tipo: string): string {
   switch (tipo) {
     case 'venta':
-      return 'bg-green-500';
+      return '🎟️';
     case 'reembolso':
-      return 'bg-orange-500';
+      return '💸';
     case 'reservacion':
-      return 'bg-blue-500';
+      return '📋';
     case 'cancelacion':
-      return 'bg-red-500';
+      return '❌';
     case 'checkin':
-      return 'bg-purple-500';
+      return '✅';
     default:
-      return 'bg-gray-500';
+      return '📌';
   }
 }
 
@@ -265,6 +265,7 @@ export default function SummaryPage() {
             hora: event.dates || 'TBD',
             sala: event.venue,
             ocupacion,
+            image_url: event.image_url || '',
           };
         });
 
@@ -279,7 +280,7 @@ export default function SummaryPage() {
           actividades.push({
             id: `checkin-${checkin.id}`,
             tipo: 'checkin',
-            mensaje: `Check-in: ${checkin.customer_name} - ${checkin.event_name}`,
+            mensaje: `Check-in: ${checkin.customer_name} → ${checkin.event_name}`,
             tiempo: formatTimeAgo(checkin.scanned_at),
           });
         });
@@ -343,7 +344,7 @@ export default function SummaryPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f6f6] p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Panel de Control</h1>
           <p className="text-gray-500 mt-1">Resumen de operaciones de boletería</p>
@@ -357,56 +358,45 @@ export default function SummaryPage() {
         />
 
         {/* Sección de Alertas */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Alertas</h2>
-          <div className="space-y-3">
+        <div className="bg-[#111] rounded-xl border border-white/5 p-4">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Alertas</h2>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {alertas.map((alerta) => (
-              <div
-                key={alerta.id}
-                className={`p-4 rounded-lg ${
-                  alerta.tipo === 'critico'
-                    ? 'bg-red-50 border border-red-200'
-                    : alerta.tipo === 'warning'
-                    ? 'bg-yellow-50 border border-yellow-200'
-                    : 'bg-blue-50 border border-blue-200'
-                }`}
-              >
-                <p
-                  className={`text-sm ${
-                    alerta.tipo === 'critico'
-                      ? 'text-red-800'
-                      : alerta.tipo === 'warning'
-                      ? 'text-yellow-800'
-                      : 'text-blue-800'
-                  }`}
-                >
-                  {alerta.mensaje}
-                </p>
+              <div key={alerta.id} className={`flex items-center gap-2 py-1.5 px-2 rounded-lg ${
+                alerta.tipo === "critico" ? "bg-red-500/10" : alerta.tipo === "warning" ? "bg-yellow-500/10" : "bg-blue-500/10"
+              }`}>
+                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  alerta.tipo === "critico" ? "bg-red-400" : alerta.tipo === "warning" ? "bg-yellow-400" : "bg-blue-400"
+                }`} />
+                <span className="text-xs text-gray-300 truncate">{alerta.mensaje}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Sección de Funciones Próximas */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Funciones Próximas</h2>
-          <div className="space-y-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Funciones Próximas</h2>
+          <div className="space-y-3">
             {funcionesProximas.map((funcion) => (
               <div key={funcion.id} className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{funcion.nombre}</p>
-                  <p className="text-sm text-gray-500">
-                    {funcion.hora} • {funcion.sala}
-                  </p>
+                <div className="flex items-center gap-3 flex-1">
+                  {funcion.image_url && (
+                    <img src={funcion.image_url} alt={funcion.nombre} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900 text-sm">{funcion.nombre}</p>
+                    <p className="text-xs text-gray-500">{funcion.hora} • {funcion.sala}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 w-full sm:w-48">
-                  <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className={`h-full ${getOcupacionColor(funcion.ocupacion)} rounded-full`}
                       style={{ width: `${funcion.ocupacion}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-gray-700 w-12 text-right">
+                  <span className="text-xs font-medium text-gray-700 w-10 text-right">
                     {funcion.ocupacion}%
                   </span>
                 </div>
@@ -416,14 +406,14 @@ export default function SummaryPage() {
         </div>
 
         {/* Sección de Actividad Reciente */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Actividad Reciente</h2>
-          <div className="space-y-3">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Actividad Reciente</h2>
+          <div className="space-y-2">
             {actividadReciente.map((actividad) => (
-              <div key={actividad.id} className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${getActividadColor(actividad.tipo)}`} />
-                <p className="flex-1 text-sm text-gray-700">{actividad.mensaje}</p>
-                <span className="text-xs text-gray-400">{actividad.tiempo}</span>
+              <div key={actividad.id} className="flex items-center gap-2">
+                <span className="text-sm flex-shrink-0">{getActividadEmoji(actividad.tipo)}</span>
+                <p className="flex-1 text-sm text-gray-700 truncate">{actividad.mensaje}</p>
+                <span className="text-xs text-gray-400 flex-shrink-0">{actividad.tiempo}</span>
               </div>
             ))}
           </div>
