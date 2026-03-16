@@ -6,13 +6,11 @@ import {
   fetchEvents,
   fetchZones,
   fetchOrders,
-  fetchCustomers,
   fetchCheckins,
   fetchEscalations,
   DulosEvent,
   TicketZone,
   Order,
-  Customer,
   Checkin,
   Escalation,
 } from '../lib/supabase';
@@ -28,15 +26,6 @@ interface Actividad {
   tipo: string;
   mensaje: string;
   tiempo: string;
-}
-
-interface ClienteDisplay {
-  id: string;
-  nombre: string;
-  email: string;
-  ordenes: number;
-  gastado: number;
-  boletos: number;
 }
 
 const emptyMetrics = {
@@ -150,16 +139,14 @@ export default function SummaryPage() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [funcionesProximas, setFuncionesProximas] = useState<{ id: number; nombre: string; hora: string; sala: string; ocupacion: number; available: number; image_url: string }[]>([]);
   const [actividadReciente, setActividadReciente] = useState<Actividad[]>([]);
-  const [clientes, setClientes] = useState<ClienteDisplay[]>([]);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [events, zones, orders, customers, checkins, escalations] = await Promise.all([
+        const [events, zones, orders, checkins, escalations] = await Promise.all([
           fetchEvents().catch(() => [] as DulosEvent[]),
           fetchZones().catch(() => [] as TicketZone[]),
           fetchOrders().catch(() => [] as Order[]),
-          fetchCustomers().catch(() => [] as Customer[]),
           fetchCheckins().catch(() => [] as Checkin[]),
           fetchEscalations().catch(() => [] as Escalation[]),
         ]);
@@ -257,37 +244,28 @@ export default function SummaryPage() {
         const actividades: Actividad[] = [];
 
         checkins.slice(0, 5).forEach((checkin) => {
+          const customerName = checkin.customer_name || 'Cliente anónimo';
           actividades.push({
             id: `checkin-${checkin.id}`,
             tipo: 'checkin',
-            mensaje: `Check-in: ${checkin.customer_name} → ${checkin.event_name}`,
+            mensaje: `Check-in: ${customerName} → ${checkin.event_name}`,
             tiempo: formatTimeAgo(checkin.scanned_at),
           });
         });
 
         orders.slice(0, 5).forEach((order) => {
           const event = eventMap.get(order.event_id);
+          const customerName = order.customer_name || 'Cliente anónimo';
           actividades.push({
             id: `order-${order.order_number}`,
             tipo: 'venta',
-            mensaje: `Venta: ${order.customer_name} - ${event?.name || order.event_id}`,
+            mensaje: `Venta: ${customerName} - ${event?.name || order.event_id}`,
             tiempo: formatTimeAgo(order.purchased_at),
           });
         });
 
         setActividadReciente(actividades.slice(0, 10));
 
-        // Build clientes recientes from real data
-        const clientesData: ClienteDisplay[] = customers.slice(0, 3).map((c) => ({
-          id: c.id,
-          nombre: c.name,
-          email: c.email,
-          ordenes: c.total_orders,
-          gastado: c.total_spent,
-          boletos: c.total_orders * 2,
-        }));
-
-        setClientes(clientesData);
         setLoading(false);
       } catch (err) {
         console.error('Error loading dashboard data:', err);
@@ -351,9 +329,9 @@ export default function SummaryPage() {
               return (
                 <div key={funcion.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${hasAlert ? 'border-red-200 bg-red-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
                   {funcion.image_url ? (
-                    <img src={funcion.image_url} alt="" className="w-11 h-11 rounded-lg object-cover flex-shrink-0" />
+                    <img src={funcion.image_url} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-11 h-11 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
                       <span className="text-gray-400">🎭</span>
                     </div>
                   )}
@@ -377,59 +355,29 @@ export default function SummaryPage() {
         )}
       </div>
 
-      {/* Clientes Recientes + Actividad Reciente */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Clientes Recientes */}
-        <div className="section-card flex flex-col">
-          <div className="section-card-header !py-3">
-            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span className="section-card-title">Clientes Recientes</span>
-          </div>
-          {clientes.length === 0 ? (
-            <EmptyState message="Sin clientes registrados" />
-          ) : (
-            <div className="flex-1 divide-y divide-gray-50">
-              {clientes.map((cliente) => (
-                <div key={cliente.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
-                  <div className="w-9 h-9 rounded-full bg-[#E63946] flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                    {cliente.nombre.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 text-sm truncate">{cliente.nombre}</p>
-                    <p className="text-xs text-gray-500">{cliente.ordenes} órdenes · ${cliente.gastado.toLocaleString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Actividad Reciente */}
+      <div className="section-card flex flex-col">
+        <div className="section-card-header !py-3">
+          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span className="section-card-title">Actividad Reciente</span>
         </div>
-
-        {/* Actividad Reciente */}
-        <div className="section-card flex flex-col lg:col-span-2">
-          <div className="section-card-header !py-3">
-            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <span className="section-card-title">Actividad Reciente</span>
-          </div>
-          {actividadReciente.length === 0 ? (
-            <EmptyState message="Sin actividad reciente" />
-          ) : (
-            <div className="flex-1 divide-y divide-gray-50">
-              {actividadReciente.map((actividad) => (
-                <div key={actividad.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
-                  <span className="text-sm flex-shrink-0">{getActividadEmoji(actividad.tipo)}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700 truncate">{actividad.mensaje}</p>
-                  </div>
-                  <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">{actividad.tiempo}</span>
+        {actividadReciente.length === 0 ? (
+          <EmptyState message="Sin actividad reciente" />
+        ) : (
+          <div className="flex-1 divide-y divide-gray-50">
+            {actividadReciente.map((actividad) => (
+              <div key={actividad.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <span className="text-sm flex-shrink-0">{getActividadEmoji(actividad.tipo)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-700 truncate">{actividad.mensaje}</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">{actividad.tiempo}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
