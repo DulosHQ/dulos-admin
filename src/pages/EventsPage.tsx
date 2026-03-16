@@ -255,10 +255,10 @@ export default function EventsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f8f6f6] py-8">
-        <div className="mx-auto max-w-[1200px] px-6">
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">EVENTOS</h1>
+      <div className="bg-[#f8f6f6] py-4">
+        <div className="mx-auto max-w-[1200px] px-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-xl font-bold text-gray-900">EVENTOS</h1>
           </div>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => <SkeletonRow key={i} />)}
@@ -269,11 +269,11 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6f6] py-8">
-      <div className="mx-auto max-w-[1200px] px-6">
+    <div className="bg-[#f8f6f6] py-4">
+      <div className="mx-auto max-w-[1200px] px-4">
         {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">EVENTOS</h1>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-xl font-bold text-gray-900">EVENTOS</h1>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <input
               type="text"
@@ -292,7 +292,7 @@ export default function EventsPage() {
         </div>
 
         {/* Project Cards */}
-        <div className="space-y-4">
+        <div className="space-y-2">
           {filteredProjects.map((project) => {
             const isExpanded = expandedIds.includes(project.id);
             const { totalRevenue, eventCount } = getProjectTotals(project);
@@ -359,12 +359,12 @@ export default function EventsPage() {
                       <table className="w-full">
                         <thead>
                           <tr className="border-b border-gray-200 text-left text-sm text-gray-500">
-                            <th className="px-4 py-3 font-medium">Evento</th>
-                            <th className="px-4 py-3 font-medium">Fecha</th>
-                            <th className="px-4 py-3 font-medium">Ocupacion</th>
-                            <th className="px-4 py-3 font-medium">Revenue</th>
-                            <th className="px-4 py-3 font-medium">Boletos</th>
-                            <th className="px-4 py-3 font-medium">Acciones</th>
+                            <th className="px-3 py-2 font-medium">Evento</th>
+                            <th className="px-3 py-2 font-medium">Fecha</th>
+                            <th className="px-3 py-2 font-medium">Ocupacion</th>
+                            <th className="px-3 py-2 font-medium">Revenue</th>
+                            <th className="px-3 py-2 font-medium">Boletos</th>
+                            <th className="px-3 py-2 font-medium">Acciones</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -377,7 +377,7 @@ export default function EventsPage() {
                               <tr
                                 className="border-b border-gray-200 last:border-b-0"
                               >
-                                <td className="px-4 py-3 font-medium text-gray-900">
+                                <td className="px-3 py-2 font-medium text-gray-900">
                                   <div className="flex items-center gap-2">
                                     {event.image_url ? (
                                       <img src={event.image_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
@@ -389,10 +389,10 @@ export default function EventsPage() {
                                     {event.name}
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 text-gray-600">
+                                <td className="px-3 py-2 text-gray-600">
                                   {formatDate(event.date)}
                                 </td>
-                                <td className="px-4 py-3">
+                                <td className="px-3 py-2">
                                   <div className="flex items-center gap-2">
                                     <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-200">
                                       <div
@@ -405,14 +405,14 @@ export default function EventsPage() {
                                     </span>
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 font-medium text-gray-900">
+                                <td className="px-3 py-2 font-medium text-gray-900">
                                   {formatCurrency(event.revenue)}
                                 </td>
-                                <td className="px-4 py-3 text-gray-600">
+                                <td className="px-3 py-2 text-gray-600">
                                   {event.ticketsSold.toLocaleString()} /{' '}
                                   {event.totalTickets.toLocaleString()}
                                 </td>
-                                <td className="px-4 py-3">
+                                <td className="px-3 py-2">
                                   <div className="flex gap-2">
                                     <button
                                       onClick={(e) => { e.stopPropagation(); toggleEventExpand(event.id); }}
