@@ -7,7 +7,9 @@ export async function GET(request: NextRequest) {
   const origin = requestUrl.origin;
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/login?error=no_code`);
+    // No code = might be hash fragment flow, let client page.tsx handle it
+    // Redirect to login where onAuthStateChange will pick it up
+    return NextResponse.redirect(`${origin}/login`);
   }
 
   // Create redirect response FIRST so we can set cookies on it
