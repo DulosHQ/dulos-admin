@@ -166,6 +166,32 @@ export default function SummaryPage() {
             ))}
           </div>
         </div>
+
+        {/* Sección de Clientes Recientes */}
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Clientes Recientes</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { id: 1, nombre: 'María González Hernández', email: 'maria.gonzalez@gmail.com', ordenes: 12, gastado: 8450, boletos: 28 },
+              { id: 2, nombre: 'Carlos Ramírez López', email: 'carlos.ramirez@hotmail.com', ordenes: 8, gastado: 5200, boletos: 16 },
+              { id: 3, nombre: 'Ana Martínez Sánchez', email: 'ana.martinez@outlook.com', ordenes: 5, gastado: 3100, boletos: 10 },
+            ].map((cliente) => (
+              <div key={cliente.id} className="bg-white rounded-xl p-4 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="rounded-full bg-[#E63946] text-white w-10 h-10 flex items-center justify-center font-bold">
+                    {cliente.nombre.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900">{cliente.nombre}</p>
+                    <p className="text-gray-500 text-sm">{cliente.email}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{cliente.ordenes} órdenes · ${cliente.gastado.toLocaleString()} gastado · {cliente.boletos} boletos</p>
+                <button onClick={() => alert(`Detalle de ${cliente.nombre}`)} className="text-sm text-[#E63946]">Ver detalle</button>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

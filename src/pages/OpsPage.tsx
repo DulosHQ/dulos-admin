@@ -133,50 +133,85 @@ export default function OpsPage() {
         )}
 
         {activeTab === 'Historial' && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex gap-4">
-              <select
-                value={filtroEvento}
-                onChange={e => setFiltroEvento(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E63946]"
-              >
-                <option value="">Todos los eventos</option>
-                {eventosUnicos.map(e => <option key={e} value={e}>{e}</option>)}
-              </select>
-              <input
-                type="text"
-                placeholder="Buscar cliente..."
-                value={busquedaCliente}
-                onChange={e => setBusquedaCliente(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E63946]"
-              />
-            </div>
-            <table className="w-full">
-              <thead className="bg-[#f8f6f6]">
-                <tr>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Ticket</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Cliente</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Evento</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Hora</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historialFiltrado.map((h, i) => (
-                  <tr key={i} className="border-t border-gray-100 hover:bg-[#f8f6f6]">
-                    <td className="py-3 px-4 text-sm font-mono text-gray-900">{h.ticket}</td>
-                    <td className="py-3 px-4 text-sm text-gray-900">{h.cliente}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{h.evento}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500">{h.hora}</td>
-                    <td className="py-3 px-4">
-                      <span className={h.ok ? 'text-green-500 text-lg' : 'text-red-500 text-lg'}>
-                        {h.ok ? '✓' : '✗'}
-                      </span>
-                    </td>
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-gray-200 flex gap-4">
+                <select
+                  value={filtroEvento}
+                  onChange={e => setFiltroEvento(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E63946]"
+                >
+                  <option value="">Todos los eventos</option>
+                  {eventosUnicos.map(e => <option key={e} value={e}>{e}</option>)}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Buscar cliente..."
+                  value={busquedaCliente}
+                  onChange={e => setBusquedaCliente(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E63946]"
+                />
+              </div>
+              <table className="w-full">
+                <thead className="bg-[#f8f6f6]">
+                  <tr>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Ticket</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Cliente</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Evento</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Hora</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Estado</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {historialFiltrado.map((h, i) => (
+                    <tr key={i} className="border-t border-gray-100 hover:bg-[#f8f6f6]">
+                      <td className="py-3 px-4 text-sm font-mono text-gray-900">{h.ticket}</td>
+                      <td className="py-3 px-4 text-sm text-gray-900">{h.cliente}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{h.evento}</td>
+                      <td className="py-3 px-4 text-sm text-gray-500">{h.hora}</td>
+                      <td className="py-3 px-4">
+                        <span className={h.ok ? 'text-green-500 text-lg' : 'text-red-500 text-lg'}>
+                          {h.ok ? '✓' : '✗'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-4">Reportes de Acceso</h3>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <h4 className="font-semibold text-gray-900 mb-4">Check-ins por Hora</h4>
+                  {[{ h: '18:00', v: 45 }, { h: '19:00', v: 120 }, { h: '20:00', v: 89 }, { h: '21:00', v: 156 }, { h: '22:00', v: 34 }].map(d => (
+                    <div key={d.h} className="flex items-center gap-3 mb-2">
+                      <span className="text-sm text-gray-600 w-12">{d.h}</span>
+                      <div className="flex-1 h-5 bg-gray-100 rounded"><div className="h-full rounded" style={{ width: `${(d.v / 156) * 100}%`, backgroundColor: '#E63946' }} /></div>
+                      <span className="text-sm text-gray-600 w-8">{d.v}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <h4 className="font-semibold text-gray-900 mb-4">Check-ins por Evento</h4>
+                  {[{ n: 'Lucero', p: 45 }, { n: 'Oh Karen', p: 25 }, { n: 'Infierno', p: 20 }, { n: 'Otros', p: 10 }].map(d => (
+                    <div key={d.n} className="flex items-center gap-3 mb-2">
+                      <span className="text-sm text-gray-600 w-20 truncate">{d.n}</span>
+                      <div className="flex-1 h-5 bg-gray-100 rounded"><div className="h-full rounded" style={{ width: `${d.p}%`, backgroundColor: '#E63946' }} /></div>
+                      <span className="text-sm text-gray-600 w-10">{d.p}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-6 shadow-sm mt-6">
+                <h4 className="font-semibold text-gray-900 mb-4">Top Operadores</h4>
+                <div className="flex gap-8">
+                  {[{ n: 'Juan Pérez', c: 89 }, { n: 'Ana López', c: 76 }, { n: 'Carlos Ruiz', c: 64 }].map(o => (
+                    <div key={o.n} className="text-center"><p className="font-medium text-gray-900">{o.n}</p><p className="text-sm text-gray-500">{o.c} check-ins</p></div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
