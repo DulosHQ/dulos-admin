@@ -347,75 +347,81 @@ export default function SummaryPage() {
         upcoming={metrics.upcoming}
       />
 
-      {/* Alertas Section - compact */}
-      {alertas.length > 0 && (
-        <div className="section-card">
-          <div className="section-card-header !py-3">
-            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <span className="section-card-title">Alertas</span>
-            <span className="badge badge-error ml-auto">{alertas.filter(a => a.tipo === 'critico').length} críticas</span>
-          </div>
-          <div className="px-4 py-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {alertas.map((alerta) => (
-                <div key={alerta.id} className={`flex items-center gap-2 py-1.5 px-2.5 rounded-md text-xs ${
-                  alerta.tipo === "critico" ? "bg-red-50" : alerta.tipo === "warning" ? "bg-amber-50" : "bg-blue-50"
-                }`}>
-                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                    alerta.tipo === "critico" ? "bg-red-500" : alerta.tipo === "warning" ? "bg-amber-500" : "bg-blue-500"
-                  }`} />
-                  <span className="text-gray-700 truncate">{alerta.mensaje}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* Funciones Próximas + Alertas integradas */}
+      <div className="section-card">
+        <div className="section-card-header !py-3">
+          <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span className="section-card-title">Funciones Próximas</span>
+          {alertas.filter(a => a.tipo === 'critico').length > 0 && (
+            <span className="badge badge-error ml-auto">{alertas.filter(a => a.tipo === 'critico').length} alertas</span>
+          )}
         </div>
-      )}
-
-      {/* Two-column layout for Funciones and Actividad */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Funciones Próximas - compact list */}
-        <div className="section-card flex flex-col">
-          <div className="section-card-header !py-3">
-            <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className="section-card-title">Funciones Próximas</span>
-          </div>
-          <div className="flex-1 divide-y divide-gray-100">
-            {funcionesProximas.map((funcion) => (
-              <div key={funcion.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+          {funcionesProximas.map((funcion) => {
+            const funcionAlertas = alertas.filter(a => a.mensaje.toLowerCase().includes(funcion.nombre.toLowerCase()));
+            return (
+              <div key={funcion.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
                 {funcion.image_url ? (
-                  <img src={funcion.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                  <img src={funcion.image_url} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-gray-400 text-xs">🎭</span>
+                  <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-gray-400">🎭</span>
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm truncate">{funcion.nombre}</p>
-                  <p className="text-xs text-gray-500">{funcion.hora} · {funcion.sala}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="w-14 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${getOcupacionColor(funcion.ocupacion)} rounded-full`}
-                      style={{ width: `${funcion.ocupacion}%` }}
-                    />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{funcion.nombre}</p>
+                    <span className={`text-xs font-bold flex-shrink-0 ${funcion.ocupacion >= 80 ? 'text-red-500' : funcion.ocupacion >= 50 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                      {funcion.ocupacion}%
+                    </span>
                   </div>
-                  <span className={`text-xs font-semibold w-8 text-right ${funcion.ocupacion >= 80 ? 'text-red-500' : 'text-gray-600'}`}>
-                    {funcion.ocupacion}%
-                  </span>
+                  <p className="text-xs text-gray-500 mt-0.5">{funcion.hora} · {funcion.sala}</p>
+                  {funcionAlertas.length > 0 && (
+                    <div className="mt-1.5">
+                      {funcionAlertas.slice(0, 2).map((a, i) => (
+                        <p key={i} className="text-[10px] text-red-500 truncate">⚠ {a.mensaje.split(': ').pop()}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Clientes Recientes + Actividad Reciente */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Clientes Recientes - left column */}
+        <div className="section-card flex flex-col">
+          <div className="section-card-header !py-3">
+            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span className="section-card-title">Clientes Recientes</span>
+          </div>
+          <div className="flex-1 divide-y divide-gray-50">
+            {clientes.map((cliente) => (
+              <div key={cliente.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                <div className="w-9 h-9 rounded-full bg-[#E63946] flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                  {cliente.nombre.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 text-sm truncate">{cliente.nombre}</p>
+                  <p className="text-xs text-gray-500">{cliente.ordenes} órdenes · ${cliente.gastado.toLocaleString()}</p>
+                </div>
+                <button onClick={() => alert(`Detalle de ${cliente.nombre}`)} className="text-xs text-[#E63946] hover:underline flex-shrink-0">
+                  Ver detalle
+                </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Actividad Reciente - match height */}
-        <div className="section-card flex flex-col">
+        {/* Actividad Reciente - right 2 columns */}
+        <div className="section-card flex flex-col lg:col-span-2">
           <div className="section-card-header !py-3">
             <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -432,46 +438,7 @@ export default function SummaryPage() {
                 <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">{actividad.tiempo}</span>
               </div>
             ))}
-            {actividadReciente.length === 0 && (
-              <div className="flex-1 flex items-center justify-center py-8 text-gray-400 text-sm">
-                Sin actividad reciente
-              </div>
-            )}
           </div>
-        </div>
-      </div>
-
-      {/* Clientes Recientes - card grid instead of table */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          Clientes Recientes
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {clientes.map((cliente) => (
-            <div key={cliente.id} className="section-card p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#E63946] flex items-center justify-center text-white font-semibold">
-                  {cliente.nombre.charAt(0)}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm truncate">{cliente.nombre}</p>
-                  <p className="text-xs text-gray-500 truncate">{cliente.email}</p>
-                </div>
-              </div>
-              <div className="text-xs text-gray-600">
-                {cliente.ordenes} órdenes · ${cliente.gastado.toLocaleString()} gastado · {cliente.boletos} boletos
-              </div>
-              <button
-                onClick={() => alert(`Detalle de ${cliente.nombre}`)}
-                className="text-xs text-[#E63946] hover:underline mt-2 font-medium"
-              >
-                Ver detalle
-              </button>
-            </div>
-          ))}
         </div>
       </div>
     </div>
