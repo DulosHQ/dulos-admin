@@ -29,14 +29,21 @@ export interface TicketZone {
 }
 
 export interface Order {
+  id: string;
   order_number: string;
   customer_name: string;
   customer_email: string;
+  customer_phone?: string;
+  customer_id?: string;
   event_id: string;
   zone_name: string;
   quantity: number;
+  unit_price: number;
   total_price: number;
+  currency: string;
   payment_status: string;
+  stripe_payment_id?: string;
+  event_date?: string;
   purchased_at: string;
 }
 
@@ -51,11 +58,17 @@ export interface Escalation {
 export interface Customer {
   id: string;
   name: string;
+  last_name: string;
   email: string;
   phone?: string;
   total_spent: number;
   total_orders: number;
+  total_purchases: number;
+  first_purchase_at?: string;
+  last_purchase_at?: string;
+  notes?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface Schedule {
@@ -172,19 +185,7 @@ export async function fetchZones(eventId?: string): Promise<TicketZone[]> {
 
 export async function fetchOrders(): Promise<Order[]> {
   try {
-    // dulos_orders is empty, so we fetch from dulos_tickets and map to Order[]
-    const tickets = await supabaseFetch<Ticket[]>('dulos_tickets?order=created_at.desc&limit=50');
-    return tickets.map((ticket) => ({
-      order_number: ticket.order_id,
-      customer_name: ticket.customer_name,
-      customer_email: ticket.customer_email,
-      event_id: ticket.event_id,
-      zone_name: ticket.zone_name,
-      quantity: 1,
-      total_price: 0, // Not available from tickets
-      payment_status: ticket.status,
-      purchased_at: ticket.created_at,
-    }));
+    return await supabaseFetch<Order[]>('dulos_orders?order=purchased_at.desc&limit=50');
   } catch (error) {
     console.error('Error fetching orders:', error);
     throw error;
@@ -202,7 +203,7 @@ export async function fetchEscalations(): Promise<Escalation[]> {
 
 export async function fetchCustomers(): Promise<Customer[]> {
   try {
-    return await supabaseFetch<Customer[]>('dulos_customers?order=total_spent.desc');
+    return await supabaseFetch<Customer[]>('customers?order=total_spent.desc');
   } catch (error) {
     console.error('Error fetching customers:', error);
     throw error;
@@ -295,17 +296,18 @@ export async function fetchAllOrders(): Promise<Order[]> {
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
   try {
-    const [events, tickets, zones] = await Promise.all([
+    const [events, tickets, orders, zones] = await Promise.all([
       fetchEvents(),
-      supabaseFetch<Ticket[]>('dulos_tickets?select=id'),
+      supabaseFetch<{ id: string }[]>('dulos_tickets?select=id'),
+      supabaseFetch<{ total_price: number }[]>('dulos_orders?select=total_price'),
       fetchZones(),
     ]);
 
     // Count total tickets from dulos_tickets
     const totalTickets = tickets.length;
 
-    // Calculate revenue from zones (sold * price)
-    const totalRevenue = zones.reduce((sum, zone) => sum + (zone.sold * zone.price), 0);
+    // Calculate revenue from dulos_orders SUM(total_price)
+    const totalRevenue = orders.reduce((sum, order) => sum + (order.total_price || 0), 0);
     const totalEvents = events.length;
 
     const totalSold = zones.reduce((sum, zone) => sum + zone.sold, 0);
@@ -337,29 +339,7 @@ export async function fetchTicketsByEvent(eventId: string): Promise<Ticket[]> {
 
 export async function fetchCustomersFromTickets(): Promise<Customer[]> {
   try {
-    // Since dulos_customers table doesn't exist, derive from dulos_tickets
-    const tickets = await supabaseFetch<Ticket[]>('dulos_tickets');
-    const customerMap = new Map<string, Customer>();
-    
-    tickets.forEach(ticket => {
-      const email = ticket.customer_email;
-      if (!customerMap.has(email)) {
-        customerMap.set(email, {
-          id: email,
-          name: ticket.customer_name,
-          email: ticket.customer_email,
-          total_spent: 0,
-          total_orders: 0,
-          created_at: ticket.created_at,
-        });
-      }
-      
-      const customer = customerMap.get(email)!;
-      customer.total_orders += 1;
-      // Note: total_price not available in tickets, would need to calculate from zones
-    });
-
-    return Array.from(customerMap.values()).sort((a, b) => b.total_orders - a.total_orders);
+    return await supabaseFetch<Customer[]>('customers?order=total_spent.desc');
   } catch (error) {
     console.error('Error fetching customers:', error);
     throw error;
@@ -387,32 +367,7 @@ export async function fetchNotificationLogs(): Promise<AuditLog[]> {
 
 export async function searchCustomerByNameOrEmail(query: string): Promise<Customer[]> {
   try {
-    // Search across dulos_tickets since customer table doesn't exist
-    const tickets = await supabaseFetch<Ticket[]>(`dulos_tickets?or=(customer_name.ilike.*${query}*,customer_email.ilike.*${query}*)&order=created_at.desc`);
-    
-    // Deduplicate by email and aggregate
-    const customerMap = new Map<string, Customer & { tickets: Ticket[] }>();
-    
-    tickets.forEach(ticket => {
-      const email = ticket.customer_email;
-      if (!customerMap.has(email)) {
-        customerMap.set(email, {
-          id: email,
-          name: ticket.customer_name,
-          email: ticket.customer_email,
-          total_spent: 0,
-          total_orders: 0,
-          created_at: ticket.created_at,
-          tickets: [],
-        });
-      }
-      
-      const customer = customerMap.get(email)!;
-      customer.tickets.push(ticket);
-      customer.total_orders = customer.tickets.length;
-    });
-
-    return Array.from(customerMap.values()).slice(0, 20);
+    return await supabaseFetch<Customer[]>(`customers?or=(name.ilike.*${query}*,email.ilike.*${query}*)&order=total_spent.desc&limit=20`);
   } catch (error) {
     console.error('Error searching customers:', error);
     throw error;
