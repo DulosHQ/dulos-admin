@@ -8,10 +8,13 @@ import {
   fetchZones,
   fetchAllOrders,
   fetchSchedules,
+  getVenueMap,
+  getVenueName,
   DulosEvent,
   TicketZone,
   Order,
   Schedule,
+  Venue,
 } from '../lib/supabase';
 import { createEvent, updateEvent, archiveEvent } from '../app/actions/events.actions';
 
@@ -120,11 +123,6 @@ const mapPaymentStatus = (status: string): OrderDisplay['estado'] => {
 
 const isPastDate = (dateStr: string): boolean => {
   if (!dateStr) return false;
-  const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (match) {
-    const d = new Date(match[0]);
-    return d < new Date();
-  }
   const d = new Date(dateStr);
   if (!isNaN(d.getTime())) return d < new Date();
   return false;
@@ -514,6 +512,7 @@ type FilterTab = 'todos' | 'proximos' | 'pasados';
 export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectDisplay[]>([]);
+  const [venueMap, setVenueMap] = useState<Map<string, Venue>>(new Map());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTab, setFilterTab] = useState<FilterTab>('todos');
@@ -533,12 +532,15 @@ export default function EventsPage() {
 
   async function loadData() {
     try {
-      const [events, zones, orders, schedules] = await Promise.all([
+      const [events, zones, orders, schedules, venues] = await Promise.all([
         fetchAllEvents().catch(() => []),
         fetchZones().catch(() => []),
         fetchAllOrders().catch(() => []),
         fetchSchedules().catch(() => []),
+        getVenueMap().catch(() => new Map<string, Venue>()),
       ]);
+
+      setVenueMap(venues);
 
       const projectMap = new Map<string, DulosEvent[]>();
       events.forEach((event) => {
@@ -572,8 +574,8 @@ export default function EventsPage() {
           return {
             id: event.id,
             name: event.name,
-            venue: event.venue,
-            date: event.dates,
+            venue: getVenueName(event.venue_id, venues),
+            date: event.start_date ? new Date(event.start_date).toLocaleDateString('es-MX') : 'TBD',
             image_url: event.image_url || '',
             ticketsSold,
             totalTickets,
@@ -615,7 +617,7 @@ export default function EventsPage() {
           };
         });
 
-        const allPast = projectEvents.every((e) => isPastDate(e.dates));
+        const allPast = projectEvents.every((e) => isPastDate(e.start_date));
 
         const status: ProjectDisplay['status'] = allPast
           ? 'FINALIZADO'

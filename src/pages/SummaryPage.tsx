@@ -11,12 +11,15 @@ import {
   fetchCheckins,
   fetchEscalations,
   fetchTickets,
+  getVenueMap,
+  getVenueName,
   DulosEvent,
   TicketZone,
   Order,
   Checkin,
   Escalation,
   Ticket,
+  Venue,
 } from '../lib/supabase';
 
 interface Alerta {
@@ -117,6 +120,7 @@ export default function SummaryPage() {
   const [allBoletos, setAllBoletos] = useState<{ id: string; ticket: string; cliente: string; evento: string; zona: string; status: string; fecha: string }[]>([]);
   const [allZones, setAllZones] = useState<TicketZone[]>([]);
   const [allEvents, setAllEvents] = useState<DulosEvent[]>([]);
+  const [venueMap, setVenueMap] = useState<Map<string, Venue>>(new Map());
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [allActividad, setAllActividad] = useState<Actividad[]>([]);
   const detailRef = useRef<HTMLDivElement>(null);
@@ -126,17 +130,19 @@ export default function SummaryPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [events, zones, orders, checkins, escalations, tickets] = await Promise.all([
+        const [events, zones, orders, checkins, escalations, tickets, venues] = await Promise.all([
           fetchEvents().catch(() => [] as DulosEvent[]),
           fetchZones().catch(() => [] as TicketZone[]),
           fetchOrders().catch(() => [] as Order[]),
           fetchCheckins().catch(() => [] as Checkin[]),
           fetchEscalations().catch(() => [] as Escalation[]),
           fetchTickets().catch(() => [] as Ticket[]),
+          getVenueMap().catch(() => new Map<string, Venue>()),
         ]);
 
         setAllZones(zones);
         setAllEvents(events);
+        setVenueMap(venues);
 
         const totalRevenue = zones.reduce((sum, z) => sum + (z.sold * z.price), 0);
         const totalTickets = zones.reduce((sum, z) => sum + z.sold, 0);
@@ -210,12 +216,14 @@ export default function SummaryPage() {
           const ez = zones.filter((z) => z.event_id === event.id);
           const sold = ez.reduce((s, z) => s + z.sold, 0);
           const total = ez.reduce((s, z) => s + z.available + z.sold, 0);
+          const venueName = getVenueName(event.venue_id, venues);
+          const eventDate = event.start_date ? new Date(event.start_date).toLocaleDateString('es-MX') : 'TBD';
           return {
             id: idx + 1,
             eventId: event.id,
             nombre: event.name,
-            hora: event.dates || 'TBD',
-            sala: event.venue,
+            hora: eventDate,
+            sala: venueName,
             ocupacion: total > 0 ? Math.round((sold / total) * 100) : 0,
             available: ez.reduce((s, z) => s + z.available, 0),
             image_url: event.image_url || '',
