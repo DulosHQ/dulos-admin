@@ -8,7 +8,6 @@ import {
   fetchZones,
   fetchAllOrders,
   fetchSchedules,
-  fetchProyectos,
   getVenueMap,
   getVenueName,
   getVenueCity,
@@ -238,7 +237,7 @@ function ProjectModal({
               type="text"
               value={form.nombre}
               onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#E63946] ${errors.nombre ? 'border-red-400' : 'border-gray-300'}`}
+              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#EF4444] ${errors.nombre ? 'border-red-400' : 'border-gray-300'}`}
             />
             {errors.nombre && <p className="text-xs text-red-500 mt-1">{errors.nombre}</p>}
           </div>
@@ -250,7 +249,7 @@ function ProjectModal({
               type="text"
               value={form.productor}
               onChange={(e) => setForm({ ...form, productor: e.target.value })}
-              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#E63946] ${errors.productor ? 'border-red-400' : 'border-gray-300'}`}
+              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#EF4444] ${errors.productor ? 'border-red-400' : 'border-gray-300'}`}
             />
             {errors.productor && <p className="text-xs text-red-500 mt-1">{errors.productor}</p>}
           </div>
@@ -263,7 +262,7 @@ function ProjectModal({
               value={form.imagen_url}
               onChange={(e) => setForm({ ...form, imagen_url: e.target.value })}
               placeholder="https://..."
-              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#E63946] ${errors.imagen_url ? 'border-red-400' : 'border-gray-300'}`}
+              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#EF4444] ${errors.imagen_url ? 'border-red-400' : 'border-gray-300'}`}
             />
             {errors.imagen_url && <p className="text-xs text-red-500 mt-1">{errors.imagen_url}</p>}
           </div>
@@ -275,7 +274,7 @@ function ProjectModal({
               value={form.descripcion}
               onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
               rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#E63946]"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#EF4444]"
             />
           </div>
 
@@ -285,7 +284,7 @@ function ProjectModal({
             <select
               value={form.estado}
               onChange={(e) => setForm({ ...form, estado: e.target.value as 'Borrador' | 'Publicado' })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#E63946]"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#EF4444]"
             >
               <option value="Borrador">Borrador</option>
               <option value="Publicado">Publicado</option>
@@ -295,7 +294,7 @@ function ProjectModal({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-[#E63946] px-4 py-2.5 font-medium text-white transition-colors hover:bg-[#c5303c] disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full rounded-lg bg-[#EF4444] px-4 py-2.5 font-medium text-white transition-colors hover:bg-[#c5303c] disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting && (
               <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -336,7 +335,7 @@ function ConfirmDialog({
           <button onClick={onCancel} className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             Cancelar
           </button>
-          <button onClick={onConfirm} className="flex-1 rounded-lg bg-[#E63946] px-4 py-2 text-sm font-medium text-white hover:bg-[#c5303c]">
+          <button onClick={onConfirm} className="flex-1 rounded-lg bg-[#EF4444] px-4 py-2 text-sm font-medium text-white hover:bg-[#c5303c]">
             Archivar
           </button>
         </div>
@@ -504,7 +503,7 @@ function EventDetailPanel({ project }: { project: ProjectDisplay }) {
                         <tr key={s.id} className="border-b last:border-0">
                           <td className="py-1.5 text-gray-900 font-medium">{s.fecha}</td>
                           <td className="py-1.5 text-gray-600">{s.horaInicio} - {s.horaFin}</td>
-                          <td className="py-1.5 text-right font-bold text-[#E63946]">{s.vendidos}</td>
+                          <td className="py-1.5 text-right font-bold text-[#EF4444]">{s.vendidos}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -547,8 +546,7 @@ export default function EventsPage() {
 
   async function loadData() {
     try {
-      const [projectsTab, events, zones, orders, schedules, venues] = await Promise.all([
-        fetchProyectos().catch(() => ({ headers: [], rows: [], totalRows: 0 })),
+      const [events, zones, orders, schedules, venues] = await Promise.all([
         fetchAllEvents().catch(() => []),
         fetchZones().catch(() => []),
         fetchAllOrders().catch(() => []),
@@ -559,147 +557,9 @@ export default function EventsPage() {
       setVenueMap(venues);
       setEvents(events);
 
-      // Helper functions to parse concatenated strings from dashboard_tabs
-      const parseProject = (proyectoField: string) => {
-        const idMatch = proyectoField.match(/(.+?)ID:\s*(.+)$/);
-        if (idMatch) {
-          return { name: idMatch[1].trim(), id: idMatch[2].trim() };
-        }
-        return { name: proyectoField, id: proyectoField };
-      };
-
-      const parseProducer = (producerField: string) => {
-        // If it looks like money (starts with $), return a default producer
-        if (producerField.startsWith('$')) {
-          return 'Dulos Entertainment';
-        }
-        return producerField;
-      };
-
-      const parseMoney = (moneyField: string): number => {
-        if (!moneyField) return 0;
-        const cleaned = moneyField.replace(/[$,+]/g, '');
-        return parseFloat(cleaned) || 0;
-      };
-
-      const parseStatus = (statusField: string): ProjectDisplay['status'] => {
-        if (statusField.includes('PUBLISHED')) return 'PUBLISHED';
-        if (statusField.includes('DRAFT')) return 'DRAFT';
-        if (statusField.includes('ARCHIVED')) return 'ARCHIVED';
-        return 'DRAFT';
-      };
-
-      // Process projects from dashboard_tabs
-      const projectsData: ProjectDisplay[] = projectsTab.rows.map((row) => {
-        // Access row data as object with named keys (not array destructuring)
-        const proyecto = row['Proyecto'] || row.Proyecto || '';
-        const productor = row['Productor'] || row.Productor || ''; // Note: This field contains money, not producer name
-        const estado = row['Estado'] || row.Estado || '';
-        const eventos = row['Eventos'] || row.Eventos || '0';
-        const ingresos = row['Ingresos'] || row.Ingresos || '$0';
-        const comision = row['Comisión'] || row.Comisión || '+$0';
-
-        const parsedProject = parseProject(proyecto || '');
-        const projectEvents = events.filter(event =>
-          event.name.includes(parsedProject.name) || event.id === parsedProject.id
-        );
-
-        const eventsDisplay: EventDisplay[] = projectEvents.map((event) => {
-          const eventZones = zones.filter((z) => z.event_id === event.id);
-          const eventOrders = orders.filter((o) => o.event_id === event.id);
-          const eventSchedules = schedules.filter((s) => s.event_id === event.id);
-
-          const ticketsSold = eventZones.reduce((sum, z) => sum + z.sold, 0);
-          const totalTickets = eventZones.reduce((sum, z) => sum + z.available + z.sold, 0);
-          const revenue = eventZones.reduce((sum, z) => sum + (z.sold * z.price), 0);
-
-          const ticketTypeMap = new Map<string, { price: number; sold: number; available: number }>();
-          eventZones.forEach((z) => {
-            const existing = ticketTypeMap.get(z.zone_name);
-            if (existing) {
-              existing.sold += z.sold;
-              existing.available += z.available;
-              existing.price = Math.max(existing.price, z.price);
-            } else {
-              ticketTypeMap.set(z.zone_name, { price: z.price, sold: z.sold, available: z.available });
-            }
-          });
-
-          return {
-            id: event.id,
-            name: event.name,
-            venue: getVenueName(event.venue_id, venues) + (getVenueCity(event.venue_id, venues) ? `, ${getVenueCity(event.venue_id, venues)}` : ''),
-            date: event.start_date ? formatDate(event.start_date) : 'TBD',
-            image_url: event.image_url || '',
-            ticketsSold,
-            totalTickets,
-            revenue,
-            zones: eventZones.map((z, idx) => ({
-              id: `zone-${event.id}-${idx}`,
-              nombre: z.zone_name,
-              precio: z.price,
-              capacidad: z.available + z.sold,
-              vendidos: z.sold,
-            })),
-            schedules: eventSchedules.map((s) => ({
-              id: s.id,
-              fecha: s.date,
-              horaInicio: s.start_time,
-              horaFin: s.end_time,
-              activa: s.status === 'active',
-              vendidos: s.sold_capacity,
-            })),
-            orders: eventOrders.slice(0, 10).map((o) => ({
-              id: o.order_number,
-              cliente: o.customer_name,
-              email: o.customer_email,
-              zona: o.zone_name,
-              cantidad: o.quantity,
-              total: o.total_price,
-              estado: mapPaymentStatus(o.payment_status),
-              fecha: o.purchased_at,
-            })),
-            ticketTypes: Array.from(ticketTypeMap.entries())
-              .map(([tName, data], idx) => ({
-                id: `ticket-type-${idx}`,
-                name: tName,
-                price: data.price,
-                sold: data.sold,
-                available: data.available,
-              }))
-              .sort((a, b) => b.price - a.price),
-          };
-        });
-
-        const allPast = projectEvents.every((e) => isPastDate(e.start_date));
-        const parsedRevenue = parseMoney(ingresos || '');
-        const parsedCommission = parseMoney(comision || '');
-
-        // Determine status from events or state
-        let finalStatus: ProjectDisplay['status'] = parseStatus(estado || '');
-        if (allPast) {
-          finalStatus = 'FINALIZADO';
-        } else if (projectEvents.some((e) => e.status === 'active')) {
-          finalStatus = 'PUBLISHED';
-        }
-
-        return {
-          id: parsedProject.id,
-          name: parsedProject.name,
-          producer: parseProducer(productor || '') || 'Francisco Paolo Dupeyron Gutierrez', // Fallback to actual producer since Productor field contains money
-          image_url: eventsDisplay[0]?.image_url || '',
-          status: finalStatus,
-          events: eventsDisplay,
-          isPast: allPast,
-          revenue: parsedRevenue,
-          commission: parsedCommission,
-          eventCount: parseInt(eventos || '0') || eventsDisplay.length,
-        };
-      });
-
-      // Fallback: if dashboard_tabs returned nothing, create projects from dulos_events directly
-      if (projectsData.length === 0 && events.length > 0) {
-        const fallbackProjects: ProjectDisplay[] = events.map((event) => {
+      // Build projects directly from events
+      if (events.length > 0) {
+        const projectsList: ProjectDisplay[] = events.map((event) => {
           const eventZones = zones.filter((z) => z.event_id === event.id);
           const eventOrders = orders.filter((o) => o.event_id === event.id);
           const eventSchedules = schedules.filter((s) => s.event_id === event.id);
@@ -714,12 +574,14 @@ export default function EventsPage() {
             else { ticketTypeMap.set(z.zone_name, { price: z.price, sold: z.sold, available: z.available }); }
           });
 
+          const isPast = isPastDate(event.start_date);
+
           return {
             id: event.id,
             name: event.name,
             producer: 'Francisco Paolo Dupeyron Gutierrez',
             image_url: event.image_url || '',
-            status: 'PUBLISHED' as const,
+            status: (isPast ? 'FINALIZADO' : event.status === 'active' ? 'PUBLISHED' : 'DRAFT') as ProjectDisplay['status'],
             events: [{
               id: event.id,
               name: event.name,
@@ -732,14 +594,12 @@ export default function EventsPage() {
               orders: eventOrders.slice(0, 10).map((o) => ({ id: o.order_number, cliente: o.customer_name, email: o.customer_email, zona: o.zone_name, cantidad: o.quantity, total: o.total_price, estado: mapPaymentStatus(o.payment_status), fecha: o.purchased_at })),
               ticketTypes: Array.from(ticketTypeMap.entries()).map(([tName, data], idx) => ({ id: `tt-${idx}`, name: tName, price: data.price, sold: data.sold, available: data.available })).sort((a, b) => b.price - a.price),
             }],
-            isPast: isPastDate(event.start_date),
-            revenue, commission: revenue * 0.15,
+            isPast,
+            revenue, commission: revenue * 0.10,
             eventCount: 1,
           };
         });
-        setProjects(fallbackProjects);
-      } else {
-        setProjects(projectsData);
+        setProjects(projectsList);
       }
       setLoading(false);
     } catch (error) {
@@ -926,11 +786,11 @@ export default function EventsPage() {
               placeholder="Buscar proyectos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 sm:px-4 py-2 text-sm focus:border-[#E63946] focus:outline-none focus:ring-1 focus:ring-[#E63946]"
+              className="rounded-lg border border-gray-300 px-3 sm:px-4 py-2 text-sm focus:border-[#EF4444] focus:outline-none focus:ring-1 focus:ring-[#EF4444]"
             />
             <button
               onClick={() => { setEditingProject(null); setEditingProjectId(null); setModalOpen(true); }}
-              className="rounded-lg bg-[#E63946] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#c5303c]"
+              className="rounded-lg bg-[#EF4444] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#c5303c]"
             >
               + Nuevo Proyecto
             </button>
@@ -1027,7 +887,7 @@ export default function EventsPage() {
             </p>
             <button
               onClick={() => { setEditingProject(null); setEditingProjectId(null); setModalOpen(true); }}
-              className="text-sm text-[#E63946] font-medium hover:underline"
+              className="text-sm text-[#EF4444] font-medium hover:underline"
             >
               Crea tu primer evento
             </button>

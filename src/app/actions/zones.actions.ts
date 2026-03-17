@@ -14,7 +14,7 @@ const headers = {
 
 export async function getZonesByEvent(eventId: string) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_ticket_zones?event_id=eq.${eventId}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ticket_zones?event_id=eq.${eventId}`, {
       headers,
       cache: 'no-store',
     });
@@ -42,7 +42,7 @@ export async function createZone(formData: {
       available: formData.available,
       sold: 0,
     };
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_ticket_zones`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ticket_zones`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -62,7 +62,7 @@ export async function updateZone(id: string, formData: {
   available?: number;
 }) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_ticket_zones?event_id=eq.${id}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ticket_zones?event_id=eq.${id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify(formData),

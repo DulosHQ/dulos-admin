@@ -15,7 +15,6 @@ import {
   fetchTickets,
   fetchRevenueByEvent,
   fetchSalesSummary,
-  fetchPedidos,
   DulosEvent,
   TicketZone,
   Ticket,
@@ -116,7 +115,7 @@ export default function FinancePage() {
   const [rawSchedules, setRawSchedules] = useState<Schedule[]>([]);
   const [rawEventRevenues, setRawEventRevenues] = useState<{ event_id: string; event_name: string; revenue: number; image_url?: string }[]>([]);
   const [salesSummary, setSalesSummary] = useState<SalesSummary[]>([]);
-  const [pedidosData, setPedidosData] = useState<{ headers: string[]; rows: any[]; totalRows: number }>({ headers: [], rows: [], totalRows: 0 });
+  const [pedidosData] = useState<{ headers: string[]; rows: any[]; totalRows: number }>({ headers: [], rows: [], totalRows: 0 });
 
   // UI state
   const [expandedCapacity, setExpandedCapacity] = useState<number | null>(null);
@@ -128,7 +127,7 @@ export default function FinancePage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [zones, _orders, schedulesData, eventsData, tickets, revenueByEvent, salesSummaryData, pedidos] = await Promise.all([
+        const [zones, _orders, schedulesData, eventsData, tickets, revenueByEvent, salesSummaryData] = await Promise.all([
           fetchZones().catch(() => [] as TicketZone[]),
           fetchAllOrders().catch(() => []),
           fetchSchedules().catch(() => [] as Schedule[]),
@@ -136,7 +135,6 @@ export default function FinancePage() {
           fetchTickets().catch(() => [] as Ticket[]),
           fetchRevenueByEvent().catch(() => []),
           fetchSalesSummary().catch(() => [] as SalesSummary[]),
-          fetchPedidos().catch(() => ({ headers: [], rows: [], totalRows: 0 })),
         ]);
         setRawZones(zones);
         setRawTickets(tickets);
@@ -144,7 +142,6 @@ export default function FinancePage() {
         setEvents(eventsData);
         setRawEventRevenues(revenueByEvent);
         setSalesSummary(salesSummaryData);
-        setPedidosData(pedidos);
       } catch (error) {
         console.error('Error loading finance data:', error);
       } finally {
@@ -376,10 +373,10 @@ export default function FinancePage() {
 
     const summaryStats = { bestDay, avgTicketPrice, popularEvent, popularZone };
 
-    // --- Commission calculations (15% for Dulos, 85% for producers) ---
+    // --- Commission calculations (10% for Dulos, 90% for producers) ---
     const totalComissionRevenue = filteredSalesSummary.reduce((sum, s) => sum + s.total_revenue, 0);
-    const dulosCommission = totalComissionRevenue * 0.15;
-    const producerShare = totalComissionRevenue * 0.85;
+    const dulosCommission = totalComissionRevenue * 0.10;
+    const producerShare = totalComissionRevenue * 0.90;
 
     const commissionData = {
       totalRevenue: totalComissionRevenue,
@@ -389,8 +386,8 @@ export default function FinancePage() {
         event_id: s.event_id,
         event_name: s.event_name,
         revenue: s.total_revenue,
-        commission: s.total_revenue * 0.15,
-        producer: s.total_revenue * 0.85,
+        commission: s.total_revenue * 0.10,
+        producer: s.total_revenue * 0.90,
         tickets: s.total_tickets_sold,
         image_url: eventMap.get(s.event_id)?.image_url
       })).sort((a, b) => b.revenue - a.revenue)
@@ -572,7 +569,7 @@ export default function FinancePage() {
           <select
             value={selectedEvent}
             onChange={e => setSelectedEvent(e.target.value)}
-            className="px-2 sm:px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-[#E63946] focus:border-[#E63946]"
+            className="px-2 sm:px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]"
           >
             <option value="">Todos los Eventos</option>
             {events.map(event => (
@@ -583,7 +580,7 @@ export default function FinancePage() {
           {/* Export */}
           <button
             onClick={exportCSV}
-            className="px-3 sm:px-4 py-2 bg-[#E63946] text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-[#c5303c] transition-colors flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 bg-[#EF4444] text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-[#c5303c] transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -602,11 +599,11 @@ export default function FinancePage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`relative py-3 sm:py-4 text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? 'text-[#E63946]' : 'text-gray-500 hover:text-gray-800'
+                activeTab === tab.key ? 'text-[#EF4444]' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
               {tab.label}
-              {activeTab === tab.key && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#E63946]" />}
+              {activeTab === tab.key && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EF4444]" />}
             </button>
           ))}
         </div>
@@ -635,7 +632,7 @@ export default function FinancePage() {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm text-gray-900 truncate">{event.event_name}</p>
-                        <p className="text-base sm:text-lg font-extrabold text-[#E63946]">{fmtCurrency(event.revenue)}</p>
+                        <p className="text-base sm:text-lg font-extrabold text-[#EF4444]">{fmtCurrency(event.revenue)}</p>
                       </div>
                     </div>
                   </div>
@@ -837,7 +834,7 @@ export default function FinancePage() {
                 {eventOccupancy.length > 0 ? (
                   <div className="space-y-3">
                     {eventOccupancy.map((ev, i) => {
-                      const barColor = ev.occupancy > 80 ? 'bg-[#E63946]' : ev.occupancy >= 50 ? 'bg-yellow-500' : 'bg-green-500';
+                      const barColor = ev.occupancy > 80 ? 'bg-[#EF4444]' : ev.occupancy >= 50 ? 'bg-yellow-500' : 'bg-green-500';
                       return (
                         <div key={i} className="flex items-center gap-2 sm:gap-3">
                           {ev.image_url ? (
@@ -915,7 +912,7 @@ export default function FinancePage() {
                 placeholder="Buscar por ticket, cliente, evento..."
                 value={txSearch}
                 onChange={e => setTxSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#E63946] focus:border-[#E63946]"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]"
               />
             </div>
           </div>
@@ -941,7 +938,7 @@ export default function FinancePage() {
                 <tbody>
                   {processedTransactions.items.length > 0 ? processedTransactions.items.map(tx => (
                     <tr key={tx.id} className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-mono text-[#E63946] font-bold">{tx.id}</td>
+                      <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-mono text-[#EF4444] font-bold">{tx.id}</td>
                       <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] text-gray-500 whitespace-nowrap">
                         {new Date(tx.date).toLocaleString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </td>
@@ -1023,8 +1020,8 @@ export default function FinancePage() {
                   </div>
                 </div>
                 <div className="metric-card">
-                  <p className="metric-card-title">Comisión Dulos (15%)</p>
-                  <p className="metric-card-value text-[#E63946]">{fmtCurrency(commissionData.dulosCommission)}</p>
+                  <p className="metric-card-title">Comisión Dulos (10%)</p>
+                  <p className="metric-card-value text-[#EF4444]">{fmtCurrency(commissionData.dulosCommission)}</p>
                   <p className="metric-card-subtitle">Para Dulos</p>
                   <div className="metric-card-icon bg-red-100">
                     <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1033,7 +1030,7 @@ export default function FinancePage() {
                   </div>
                 </div>
                 <div className="metric-card">
-                  <p className="metric-card-title">Para Productor (85%)</p>
+                  <p className="metric-card-title">Para Productor (90%)</p>
                   <p className="metric-card-value text-emerald-600">{fmtCurrency(commissionData.producerShare)}</p>
                   <p className="metric-card-subtitle">Para productores</p>
                   <div className="metric-card-icon bg-emerald-100">
@@ -1062,8 +1059,8 @@ export default function FinancePage() {
                     <tr>
                       <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Evento</th>
                       <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Ingresos</th>
-                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Comisión (15%)</th>
-                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Productor (85%)</th>
+                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Comisión (10%)</th>
+                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Productor (90%)</th>
                       <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Boletos</th>
                     </tr>
                   </thead>
@@ -1079,7 +1076,7 @@ export default function FinancePage() {
                           </div>
                         </td>
                         <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-bold text-gray-900">{fmtCurrency(event.revenue)}</td>
-                        <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-bold text-[#E63946]">{fmtCurrency(event.commission)}</td>
+                        <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-bold text-[#EF4444]">{fmtCurrency(event.commission)}</td>
                         <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-bold text-emerald-600">{fmtCurrency(event.producer)}</td>
                         <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] text-gray-600">{event.tickets.toLocaleString()}</td>
                       </tr>

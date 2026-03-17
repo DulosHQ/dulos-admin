@@ -120,7 +120,7 @@ export default function RecentFeed({ items }: RecentFeedProps) {
         <h2 className="text-lg font-semibold text-gray-900">
           Actividad Reciente
         </h2>
-        <button className="text-sm text-[#E63946] hover:underline font-medium">
+        <button className="text-sm text-[#EF4444] hover:underline font-medium">
           Ver todo
         </button>
       </div>

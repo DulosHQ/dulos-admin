@@ -35,14 +35,14 @@ export default function AdminNav({ activeTab, onTabChange, permissions }: AdminN
               onClick={() => onTabChange(tab.id)}
               className={`relative px-2 py-4 text-sm font-medium whitespace-nowrap transition-all ${
                 activeTab === tab.id
-                  ? "text-[#E63946]"
+                  ? "text-[#EF4444]"
                   : "text-gray-500 hover:text-gray-800"
               }`}
             >
               {tab.label}
               {/* Active underline indicator (Cellosa-style) */}
               {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#E63946]" />
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EF4444]" />
               )}
             </button>
           ))}

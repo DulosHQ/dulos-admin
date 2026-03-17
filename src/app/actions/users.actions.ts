@@ -15,7 +15,7 @@ const headers = {
 
 export async function getUsers() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_team?order=role`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/team_members?order=role`, {
       headers,
       cache: 'no-store',
     });
@@ -45,7 +45,7 @@ export async function inviteUser(formData: UserInviteFormData) {
       is_active: true,
       created_at: new Date().toISOString(),
     };
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_team`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/team_members`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -61,7 +61,7 @@ export async function inviteUser(formData: UserInviteFormData) {
 
 export async function updateUserRole(userId: string, role: string) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_team?id=eq.${userId}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/team_members?id=eq.${userId}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ role }),

@@ -13,7 +13,7 @@ import {
   DashboardStats,
 } from '../lib/supabase';
 
-const ACCENT = '#E63946';
+const ACCENT = '#EF4444';
 
 interface TeamDisplay {
   id: string;
@@ -176,7 +176,7 @@ export default function AdminPage() {
           email: t.email,
           rol: t.role,
           activo: t.is_active,
-          ultimoAcceso: t.last_login ? new Date(t.last_login).getTime() : Date.now() - 30 * 24 * 60 * 60 * 1000,
+          ultimoAcceso: t.last_login_at ? new Date(t.last_login_at).getTime() : Date.now() - 30 * 24 * 60 * 60 * 1000,
         })));
 
         setLogs(auditData.map((l) => ({
@@ -532,7 +532,7 @@ export default function AdminPage() {
                       type="text"
                       value={editingValue}
                       onChange={e => setEditingValue(e.target.value)}
-                      className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946]"
+                      className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444]"
                       autoFocus
                       onKeyDown={e => { if (e.key === 'Enter') updateSetting(s.key, editingValue); if (e.key === 'Escape') setEditingSettingKey(null); }}
                     />
@@ -544,7 +544,7 @@ export default function AdminPage() {
                     <p className="text-sm font-bold truncate mr-2">{s.value}</p>
                     <button
                       onClick={() => { setEditingSettingKey(s.key); setEditingValue(s.value); }}
-                      className="text-xs text-[#E63946] hover:underline flex-shrink-0"
+                      className="text-xs text-[#EF4444] hover:underline flex-shrink-0"
                     >
                       Editar
                     </button>
@@ -565,7 +565,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between mt-1">
                   <button
                     onClick={() => updateSetting(s.key, s.value === 'true' ? 'false' : 'true')}
-                    className={`relative w-10 h-5 rounded-full transition-colors ${s.value === 'true' ? 'bg-[#E63946]' : 'bg-gray-300'}`}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${s.value === 'true' ? 'bg-[#EF4444]' : 'bg-gray-300'}`}
                   >
                     <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${s.value === 'true' ? 'translate-x-5' : ''}`} />
                   </button>
@@ -589,7 +589,7 @@ export default function AdminPage() {
                       type="text"
                       value={editingValue}
                       onChange={e => setEditingValue(e.target.value)}
-                      className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946]"
+                      className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444]"
                       autoFocus
                       onKeyDown={e => { if (e.key === 'Enter') updateSetting(s.key, editingValue); if (e.key === 'Escape') setEditingSettingKey(null); }}
                     />
@@ -601,7 +601,7 @@ export default function AdminPage() {
                     <p className="text-sm font-bold">{s.value}</p>
                     <button
                       onClick={() => { setEditingSettingKey(s.key); setEditingValue(s.value); }}
-                      className="text-xs text-[#E63946] hover:underline"
+                      className="text-xs text-[#EF4444] hover:underline"
                     >
                       Editar
                     </button>
@@ -689,7 +689,7 @@ export default function AdminPage() {
                                     type="checkbox"
                                     checked={checked}
                                     onChange={() => togglePerm(roleKey, category, perm)}
-                                    className="rounded border-gray-300 text-[#E63946] focus:ring-[#E63946]"
+                                    className="rounded border-gray-300 text-[#EF4444] focus:ring-[#EF4444]"
                                   />
                                   <span className={checked ? 'text-gray-900' : 'text-gray-400'}>{perm}</span>
                                 </label>
@@ -728,8 +728,8 @@ export default function AdminPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowInvite(false)}>
           <div className="bg-white rounded-xl p-4 sm:p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-extrabold text-sm sm:text-base mb-3">Invitar usuario</h3>
-            <input id="invite-email" type="email" placeholder="Email" className="w-full border rounded-lg px-3 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-[#E63946] focus:border-[#E63946]" />
-            <select id="invite-role" className="w-full border rounded-lg px-3 py-1.5 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-[#E63946] focus:border-[#E63946]">
+            <input id="invite-email" type="email" placeholder="Email" className="w-full border rounded-lg px-3 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]" />
+            <select id="invite-role" className="w-full border rounded-lg px-3 py-1.5 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]">
               <option value="ADMIN">Administrador</option>
               <option value="MANAGER">Gerente</option>
               <option value="TAQUILLERO">Taquillero</option>

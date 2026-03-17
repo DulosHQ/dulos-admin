@@ -11,24 +11,23 @@ const headers = {
 
 // Types
 export interface DulosEvent {
-  id: string;           // e.g. "mijares"
-  name: string;         // e.g. "Mijares Sinfónico"
-  start_date: string;   // ISO datetime
-  end_date: string;     // ISO datetime
+  id: string;           // UUID
+  name: string;
+  start_date: string;
+  end_date: string;
   image_url: string;
-  status: string;       // "active"
+  status: string;
   slug: string;
   description: string;
-  price_from: number;   // e.g. 1249
+  price_from: number;
   original_price: number;
   featured: boolean;
   sort_order: number;
-  venue_id: string;     // FK to dulos_venues
-  category: string;     // "concierto", "teatro"
-  event_type: string;   // "single"
+  venue_id: string;
+  category: string;
+  event_type: string;
   created_at: string;
   updated_at: string;
-  // Optional SEO fields
   seo_title?: string;
   seo_description?: string;
   long_description?: string;
@@ -39,17 +38,17 @@ export interface DulosEvent {
 
 export interface Venue {
   id: string;
-  name: string;        // "Teatro Morelos"
+  name: string;
   slug: string;
   address: string;
-  city: string;         // "Toluca"
-  state: string;        // "Puebla"
+  city: string;
+  state: string;
   country: string;
   latitude: number;
   longitude: number;
   maps_url: string;
-  timezone: string;     // "America/Mexico_City"
-  capacity: number;     // 500
+  timezone: string;
+  capacity: number;
   image_url?: string;
   created_at: string;
 }
@@ -91,6 +90,16 @@ export interface Order {
   stripe_payment_id?: string;
   event_date?: string;
   purchased_at: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  device_type?: string;
+  browser?: string;
+  country?: string;
+  city?: string;
+  referrer_url?: string;
 }
 
 export interface Escalation {
@@ -140,6 +149,14 @@ export interface Ticket {
   status: string;
   customer_name: string;
   customer_email: string;
+  attendee_id?: string;
+  is_buyer?: boolean;
+  seat_label?: string;
+  guest_name?: string;
+  guest_phone?: string;
+  guest_email?: string;
+  event_date?: string;
+  used_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -185,11 +202,9 @@ export interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: string;
-  permissions_count?: number;
+  role: 'super_admin' | 'operator' | 'analyst' | string;
   is_active: boolean;
-  last_login?: string;
-  avatar_url?: string;
+  last_login_at?: string;
   created_at: string;
 }
 
@@ -198,6 +213,123 @@ export interface DashboardStats {
   totalTickets: number;
   totalEvents: number;
   occupancyRate: number;
+}
+
+// New view interfaces
+export interface EventDashboard {
+  event_id: string;
+  event_name: string;
+  slug: string;
+  image_url: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  venue_name: string;
+  venue_city: string;
+  zone_name: string;
+  zone_price: number;
+  zone_sold: number;
+  zone_available: number;
+  percent_sold: number;
+  zone_color?: string;
+}
+
+export interface CustomerHistory {
+  customer_id: string;
+  customer_name: string;
+  customer_email: string;
+  order_id: string;
+  order_number: string;
+  event_name: string;
+  zone_name: string;
+  quantity: number;
+  total_price: number;
+  purchased_at: string;
+  ticket_status: string;
+}
+
+// New table interfaces (empty but ready)
+export interface Dispersion {
+  id: string;
+  event_id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  recipient_email: string;
+  subject: string;
+  body: string;
+  sent_at?: string;
+  created_at: string;
+}
+
+export interface Reminder {
+  id: string;
+  event_id: string;
+  type: string;
+  scheduled_at: string;
+  sent_at?: string;
+  created_at: string;
+}
+
+export interface Survey {
+  id: string;
+  event_id: string;
+  title: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ScannerLink {
+  id: string;
+  event_id: string;
+  token: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface GtmEvent {
+  id: string;
+  event_name: string;
+  event_data: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface TicketRecovery {
+  id: string;
+  order_id: string;
+  customer_email: string;
+  status: string;
+  created_at: string;
+}
+
+export interface VenueSeat {
+  id: string;
+  venue_id: string;
+  section: string;
+  row: string;
+  seat_number: string;
+  created_at: string;
+}
+
+export interface EventSection {
+  id: string;
+  event_id: string;
+  name: string;
+  capacity: number;
+  created_at: string;
+}
+
+export interface EventSectionSeat {
+  id: string;
+  event_section_id: string;
+  venue_seat_id: string;
+  status: string;
+  created_at: string;
 }
 
 async function supabaseFetch<T>(endpoint: string): Promise<T> {
@@ -213,7 +345,7 @@ let venueCache: Map<string, Venue> | null = null;
 
 export async function fetchVenues(): Promise<Venue[]> {
   try {
-    return await supabaseFetch<Venue[]>('dulos_venues');
+    return await supabaseFetch<Venue[]>('venues');
   } catch (error) {
     console.error('Error fetching venues:', error);
     throw error;
@@ -238,7 +370,7 @@ export function getVenueCity(venueId: string, venueMap: Map<string, Venue>): str
 
 export async function fetchEvents(): Promise<DulosEvent[]> {
   try {
-    return await supabaseFetch<DulosEvent[]>('dulos_events?status=eq.active');
+    return await supabaseFetch<DulosEvent[]>('events?status=eq.active');
   } catch (error) {
     console.error('Error fetching events:', error);
     throw error;
@@ -248,8 +380,8 @@ export async function fetchEvents(): Promise<DulosEvent[]> {
 export async function fetchZones(eventId?: string): Promise<TicketZone[]> {
   try {
     const endpoint = eventId
-      ? `dulos_ticket_zones?event_id=eq.${eventId}`
-      : 'dulos_ticket_zones';
+      ? `ticket_zones?event_id=eq.${eventId}`
+      : 'ticket_zones';
     return await supabaseFetch<TicketZone[]>(endpoint);
   } catch (error) {
     console.error('Error fetching zones:', error);
@@ -259,7 +391,7 @@ export async function fetchZones(eventId?: string): Promise<TicketZone[]> {
 
 export async function fetchOrders(): Promise<Order[]> {
   try {
-    return await supabaseFetch<Order[]>('dulos_orders?order=purchased_at.desc&limit=50');
+    return await supabaseFetch<Order[]>('orders?order=purchased_at.desc&limit=50');
   } catch (error) {
     console.error('Error fetching orders:', error);
     throw error;
@@ -268,7 +400,7 @@ export async function fetchOrders(): Promise<Order[]> {
 
 export async function fetchEscalations(): Promise<Escalation[]> {
   try {
-    return await supabaseFetch<Escalation[]>('dulos_escalations?resolved=eq.false');
+    return await supabaseFetch<Escalation[]>('escalations?resolved=eq.false');
   } catch (error) {
     console.error('Error fetching escalations:', error);
     throw error;
@@ -287,8 +419,8 @@ export async function fetchCustomers(): Promise<Customer[]> {
 export async function fetchSchedules(eventId?: string): Promise<Schedule[]> {
   try {
     const endpoint = eventId
-      ? `dulos_schedules?event_id=eq.${eventId}`
-      : 'dulos_schedules';
+      ? `schedules?event_id=eq.${eventId}`
+      : 'schedules';
     return await supabaseFetch<Schedule[]>(endpoint);
   } catch (error) {
     console.error('Error fetching schedules:', error);
@@ -298,7 +430,7 @@ export async function fetchSchedules(eventId?: string): Promise<Schedule[]> {
 
 export async function fetchTickets(): Promise<Ticket[]> {
   try {
-    return await supabaseFetch<Ticket[]>('dulos_tickets?order=created_at.desc');
+    return await supabaseFetch<Ticket[]>('tickets?order=created_at.desc');
   } catch (error) {
     console.error('Error fetching tickets:', error);
     throw error;
@@ -307,7 +439,7 @@ export async function fetchTickets(): Promise<Ticket[]> {
 
 export async function fetchCoupons(): Promise<Coupon[]> {
   try {
-    return await supabaseFetch<Coupon[]>('dulos_coupons?is_active=eq.true&order=created_at.desc');
+    return await supabaseFetch<Coupon[]>('coupons?is_active=eq.true&order=created_at.desc');
   } catch (error) {
     console.error('Error fetching coupons:', error);
     throw error;
@@ -316,7 +448,7 @@ export async function fetchCoupons(): Promise<Coupon[]> {
 
 export async function fetchCheckins(): Promise<Checkin[]> {
   try {
-    return await supabaseFetch<Checkin[]>('dulos_checkins?order=scanned_at.desc&limit=20');
+    return await supabaseFetch<Checkin[]>('checkins?order=scanned_at.desc&limit=20');
   } catch (error) {
     console.error('Error fetching checkins:', error);
     throw error;
@@ -325,7 +457,7 @@ export async function fetchCheckins(): Promise<Checkin[]> {
 
 export async function fetchAuditLogs(): Promise<AuditLog[]> {
   try {
-    return await supabaseFetch<AuditLog[]>('dulos_audit_logs?order=created_at.desc&limit=20');
+    return await supabaseFetch<AuditLog[]>('audit_logs?order=created_at.desc&limit=20');
   } catch (error) {
     console.error('Error fetching audit logs:', error);
     throw error;
@@ -334,7 +466,7 @@ export async function fetchAuditLogs(): Promise<AuditLog[]> {
 
 export async function fetchTeam(): Promise<TeamMember[]> {
   try {
-    return await supabaseFetch<TeamMember[]>('dulos_team?order=role');
+    return await supabaseFetch<TeamMember[]>('team_members?order=role');
   } catch (error) {
     console.error('Error fetching team:', error);
     throw error;
@@ -343,7 +475,7 @@ export async function fetchTeam(): Promise<TeamMember[]> {
 
 export async function fetchAllEvents(): Promise<DulosEvent[]> {
   try {
-    return await supabaseFetch<DulosEvent[]>('dulos_events?order=start_date.desc');
+    return await supabaseFetch<DulosEvent[]>('events?order=start_date.desc');
   } catch (error) {
     console.error('Error fetching all events:', error);
     throw error;
@@ -352,7 +484,7 @@ export async function fetchAllEvents(): Promise<DulosEvent[]> {
 
 export async function fetchAllCoupons(): Promise<Coupon[]> {
   try {
-    return await supabaseFetch<Coupon[]>('dulos_coupons?order=created_at.desc');
+    return await supabaseFetch<Coupon[]>('coupons?order=created_at.desc');
   } catch (error) {
     console.error('Error fetching all coupons:', error);
     throw error;
@@ -368,67 +500,9 @@ export async function fetchSalesSummary(): Promise<SalesSummary[]> {
   }
 }
 
-// Dashboard tabs fetch functions
-export async function fetchDashboardTab(tabName: string): Promise<{ headers: string[]; rows: any[]; totalRows: number }> {
-  try {
-    const data = await supabaseFetch<any[]>(`dulos_dashboard_tabs?tab_name=eq.${tabName}&order=id.asc`);
-
-    if (data.length === 0) {
-      return { headers: [], rows: [], totalRows: 0 };
-    }
-
-    // Aggregate all rows across multiple records (for pagination)
-    let allHeaders: string[] = [];
-    let allRows: any[] = [];
-    let totalRows = 0;
-
-    data.forEach(record => {
-      if (record.headers && allHeaders.length === 0) {
-        allHeaders = record.headers;
-      }
-      if (record.row_data && Array.isArray(record.row_data)) {
-        allRows = allRows.concat(record.row_data);
-      }
-      if (record.total_rows) {
-        totalRows = Math.max(totalRows, record.total_rows);
-      }
-    });
-
-    return {
-      headers: allHeaders,
-      rows: allRows,
-      totalRows: totalRows || allRows.length
-    };
-  } catch (error) {
-    console.error(`Error fetching dashboard tab ${tabName}:`, error);
-    throw error;
-  }
-}
-
-// Convenience functions for specific tabs
-export async function fetchProyectos() {
-  return fetchDashboardTab('Proyectos');
-}
-
-export async function fetchPedidos() {
-  return fetchDashboardTab('Pedidos');
-}
-
-export async function fetchBoletos() {
-  return fetchDashboardTab('Boletos');
-}
-
-export async function fetchReservas() {
-  return fetchDashboardTab('Reservas');
-}
-
-export async function fetchComisiones() {
-  return fetchDashboardTab('Comisiones');
-}
-
 export async function fetchAllOrders(): Promise<Order[]> {
   try {
-    return await supabaseFetch<Order[]>('dulos_orders?order=purchased_at.desc');
+    return await supabaseFetch<Order[]>('orders?order=purchased_at.desc');
   } catch (error) {
     console.error('Error fetching all orders:', error);
     throw error;
@@ -443,12 +517,10 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
       fetchZones(),
     ]);
 
-    // Calculate revenue and tickets from sales summary (REAL data)
     const totalRevenue = salesSummary.reduce((sum, s) => sum + s.total_revenue, 0);
     const totalTickets = salesSummary.reduce((sum, s) => sum + s.total_tickets_sold, 0);
     const totalEvents = events.length;
 
-    // Calculate occupancy rate from zones
     const totalSold = zones.reduce((sum, zone) => sum + zone.sold, 0);
     const totalAvailable = zones.reduce((sum, zone) => sum + zone.available + zone.sold, 0);
     const occupancyRate = totalAvailable > 0 ? (totalSold / totalAvailable) * 100 : 0;
@@ -465,11 +537,9 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   }
 }
 
-// New functions for enhanced features
-
 export async function fetchTicketsByEvent(eventId: string): Promise<Ticket[]> {
   try {
-    return await supabaseFetch<Ticket[]>(`dulos_tickets?event_id=eq.${eventId}&order=created_at.desc`);
+    return await supabaseFetch<Ticket[]>(`tickets?event_id=eq.${eventId}&order=created_at.desc`);
   } catch (error) {
     console.error('Error fetching tickets by event:', error);
     throw error;
@@ -487,7 +557,7 @@ export async function fetchCustomersFromTickets(): Promise<Customer[]> {
 
 export async function fetchTransactionHistory(): Promise<Ticket[]> {
   try {
-    return await supabaseFetch<Ticket[]>('dulos_tickets?order=created_at.desc&limit=100');
+    return await supabaseFetch<Ticket[]>('tickets?order=created_at.desc&limit=100');
   } catch (error) {
     console.error('Error fetching transactions:', error);
     throw error;
@@ -496,8 +566,7 @@ export async function fetchTransactionHistory(): Promise<Ticket[]> {
 
 export async function fetchNotificationLogs(): Promise<AuditLog[]> {
   try {
-    // Filter audit logs for notification-related actions
-    return await supabaseFetch<AuditLog[]>('dulos_audit_logs?action=ilike.*notification*&order=created_at.desc&limit=50');
+    return await supabaseFetch<AuditLog[]>('audit_logs?action=ilike.*notification*&order=created_at.desc&limit=50');
   } catch (error) {
     console.error('Error fetching notification logs:', error);
     throw error;
@@ -547,12 +616,53 @@ export async function fetchRevenueByEvent(): Promise<{ event_id: string; event_n
 
 export async function fetchAuditLogsByAction(actionFilter?: string): Promise<AuditLog[]> {
   try {
-    const endpoint = actionFilter 
-      ? `dulos_audit_logs?action=ilike.*${actionFilter}*&order=created_at.desc&limit=100`
-      : 'dulos_audit_logs?order=created_at.desc&limit=100';
+    const endpoint = actionFilter
+      ? `audit_logs?action=ilike.*${actionFilter}*&order=created_at.desc&limit=100`
+      : 'audit_logs?order=created_at.desc&limit=100';
     return await supabaseFetch<AuditLog[]>(endpoint);
   } catch (error) {
     console.error('Error fetching filtered audit logs:', error);
+    throw error;
+  }
+}
+
+// New view fetch functions
+export async function fetchEventDashboard(): Promise<EventDashboard[]> {
+  try {
+    return await supabaseFetch<EventDashboard[]>('v_event_dashboard');
+  } catch (error) {
+    console.error('Error fetching event dashboard:', error);
+    throw error;
+  }
+}
+
+export async function fetchCustomerHistory(customerId: string): Promise<CustomerHistory[]> {
+  try {
+    return await supabaseFetch<CustomerHistory[]>(`v_customer_history?customer_id=eq.${customerId}&order=purchased_at.desc`);
+  } catch (error) {
+    console.error('Error fetching customer history:', error);
+    throw error;
+  }
+}
+
+export async function fetchCustomersPaginated(page: number = 1, pageSize: number = 20): Promise<{ data: Customer[]; count: number }> {
+  try {
+    const offset = (page - 1) * pageSize;
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?order=total_spent.desc&limit=${pageSize}&offset=${offset}`, {
+      headers: {
+        ...headers,
+        'Prefer': 'count=exact',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
+    }
+    const contentRange = response.headers.get('content-range');
+    const count = contentRange ? parseInt(contentRange.split('/')[1] || '0') : 0;
+    const data = await response.json();
+    return { data, count };
+  } catch (error) {
+    console.error('Error fetching paginated customers:', error);
     throw error;
   }
 }

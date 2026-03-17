@@ -8,8 +8,6 @@ import {
   fetchTickets,
   fetchNotificationLogs,
   fetchAllEvents,
-  fetchReservas,
-  fetchBoletos,
   Checkin,
   Coupon,
   Ticket,
@@ -20,7 +18,7 @@ import {
 import { createCoupon as createCouponAction } from '../app/actions/coupons.actions'
 import { couponSchema } from '../lib/validations/coupons.schema'
 
-const ACCENT = '#E63946'
+const ACCENT = '#EF4444'
 const PAGE_SIZE = 20
 
 function formatTime(d: string) {
@@ -116,18 +114,12 @@ export default function OpsPage() {
       fetchTickets().catch(() => []),
       fetchNotificationLogs().catch(() => []),
       fetchAllEvents().catch(() => []),
-      fetchReservas().catch(() => ({ headers: [], rows: [], totalRows: 0 })),
-      fetchBoletos().catch(() => ({ headers: [], rows: [], totalRows: 0 })),
-    ]).then(([ci, co, tk, nl, ev, rs, bl]) => {
+    ]).then(([ci, co, tk, nl, ev]) => {
       setCheckins(ci.filter((c: Checkin) => c.customer_name && c.customer_name !== 'DUPLICADO'))
       setCupones(co)
       setTickets(tk)
       setNotificationLogs(nl)
       setEvents(ev)
-      setReservas(rs.rows || [])
-      setReservasHeaders(rs.headers || [])
-      setBoletos(bl.rows || [])
-      setBoletosHeaders(bl.headers || [])
       setLoading(false)
     })
   }, [])
@@ -341,9 +333,9 @@ export default function OpsPage() {
                     {cameraActive ? (
                       <div className="relative">
                         <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-[4/3] rounded-lg bg-black object-cover" />
-                        <div className="absolute inset-0 border-2 border-[#E63946] rounded-lg pointer-events-none">
+                        <div className="absolute inset-0 border-2 border-[#EF4444] rounded-lg pointer-events-none">
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 sm:w-32 h-24 sm:h-32 border-2 border-white/40 rounded-lg" />
-                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-24 sm:h-32 bg-[#E63946]/30 animate-pulse" />
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-24 sm:h-32 bg-[#EF4444]/30 animate-pulse" />
                         </div>
                         <button onClick={stopCamera} className="absolute bottom-2 right-2 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors">
                           Cerrar Cámara
@@ -358,9 +350,9 @@ export default function OpsPage() {
                             onChange={e => setManualTicket(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleManualScan()}
                             placeholder="TKT-2026-0001 o token..."
-                            className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs sm:text-sm text-white placeholder-white/40 focus:outline-none focus:border-[#E63946]"
+                            className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs sm:text-sm text-white placeholder-white/40 focus:outline-none focus:border-[#EF4444]"
                           />
-                          <button onClick={handleManualScan} className="px-3 py-2 bg-[#E63946] rounded-lg text-xs font-bold hover:bg-[#c5303c] transition-colors">Validar</button>
+                          <button onClick={handleManualScan} className="px-3 py-2 bg-[#EF4444] rounded-lg text-xs font-bold hover:bg-[#c5303c] transition-colors">Validar</button>
                         </div>
                         <button onClick={startCamera} className="w-full py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2">
                           📷 Abrir Cámara QR
@@ -420,7 +412,7 @@ export default function OpsPage() {
                           <div key={e.name} className="flex items-center gap-2">
                             <span className="text-[10px] sm:text-xs w-20 sm:w-24 truncate text-white/70">{e.name}</span>
                             <div className="flex-1 h-2 sm:h-2.5 bg-white/10 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full bg-[#E63946]" style={{ width: `${e.pct}%` }} />
+                              <div className="h-full rounded-full bg-[#EF4444]" style={{ width: `${e.pct}%` }} />
                             </div>
                             <span className="text-[10px] sm:text-xs text-white/50 w-12 sm:w-14 text-right">{e.count} ({e.pct}%)</span>
                           </div>
@@ -457,7 +449,7 @@ export default function OpsPage() {
                     <tbody>
                       {paginatedCheckins.map((c, i) => (
                         <tr key={i} className="border-t border-gray-50 hover:bg-gray-50">
-                          <td className="py-1.5 px-2 sm:px-3 font-mono text-[#E63946]">{c.ticket_number}</td>
+                          <td className="py-1.5 px-2 sm:px-3 font-mono text-[#EF4444]">{c.ticket_number}</td>
                           <td className="py-1.5 px-2 sm:px-3 truncate max-w-[80px] sm:max-w-none">{c.customer_name}</td>
                           <td className="py-1.5 px-2 sm:px-3 text-gray-600 hidden sm:table-cell truncate max-w-[100px]">{c.event_name}</td>
                           <td className="py-1.5 px-2 sm:px-3 text-gray-500">{formatTime(c.scanned_at)}</td>
@@ -900,7 +892,7 @@ export default function OpsPage() {
                   value={couponForm.code}
                   onChange={e => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
                   placeholder="VERANO2026"
-                  className={"w-full px-3 py-2 border rounded-lg text-sm uppercase focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946] " + (couponErrors.code ? 'border-red-400' : 'border-gray-200')}
+                  className={"w-full px-3 py-2 border rounded-lg text-sm uppercase focus:outline-none focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444] " + (couponErrors.code ? 'border-red-400' : 'border-gray-200')}
                 />
                 {couponErrors.code && <p className="text-xs text-red-500 mt-1">{couponErrors.code}</p>}
               </div>
@@ -909,7 +901,7 @@ export default function OpsPage() {
                 <select
                   value={couponForm.discount_type}
                   onChange={e => setCouponForm({ ...couponForm, discount_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444]"
                 >
                   <option value="percentage">Porcentaje</option>
                   <option value="fixed">Monto fijo</option>
@@ -922,7 +914,7 @@ export default function OpsPage() {
                   value={couponForm.discount_value}
                   onChange={e => setCouponForm({ ...couponForm, discount_value: e.target.value })}
                   placeholder={couponForm.discount_type === 'percentage' ? '15' : '100'}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444]"
                 />
               </div>
               <div>
@@ -930,7 +922,7 @@ export default function OpsPage() {
                 <select
                   value={couponForm.event_id}
                   onChange={e => setCouponForm({ ...couponForm, event_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444]"
                 >
                   <option value="">Todos los eventos</option>
                   {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
@@ -943,7 +935,7 @@ export default function OpsPage() {
                   value={couponForm.max_uses}
                   onChange={e => setCouponForm({ ...couponForm, max_uses: e.target.value })}
                   placeholder="100"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444]"
                 />
               </div>
               <div>
@@ -952,7 +944,7 @@ export default function OpsPage() {
                   type="date"
                   value={couponForm.valid_until}
                   onChange={e => setCouponForm({ ...couponForm, valid_until: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#E63946] focus:ring-1 focus:ring-[#E63946]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#EF4444] focus:ring-1 focus:ring-[#EF4444]"
                 />
               </div>
             </div>

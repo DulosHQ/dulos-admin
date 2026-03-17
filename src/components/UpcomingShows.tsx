@@ -18,13 +18,13 @@ interface UpcomingShowsProps {
 function getOccupancyColor(occupancy: number): string {
   if (occupancy < 50) return 'bg-green-500';
   if (occupancy < 80) return 'bg-yellow-500';
-  return 'bg-[#E63946]';
+  return 'bg-[#EF4444]';
 }
 
 function getOccupancyTextColor(occupancy: number): string {
   if (occupancy < 50) return 'text-green-600';
   if (occupancy < 80) return 'text-yellow-600';
-  return 'text-[#E63946]';
+  return 'text-[#EF4444]';
 }
 
 function getUrgencyBadge(occupancy: number, remaining: number) {

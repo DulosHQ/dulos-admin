@@ -15,7 +15,7 @@ const headers = {
 
 export async function getCoupons() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_coupons?order=created_at.desc`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/coupons?order=created_at.desc`, {
       headers,
       cache: 'no-store',
     });
@@ -49,7 +49,7 @@ export async function createCoupon(formData: CouponFormData) {
       used_count: 0,
       created_at: new Date().toISOString(),
     };
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_coupons`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/coupons`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -65,7 +65,7 @@ export async function createCoupon(formData: CouponFormData) {
 
 export async function updateCoupon(id: string, formData: Partial<CouponFormData>) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_coupons?id=eq.${id}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/coupons?id=eq.${id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify(formData),
@@ -81,7 +81,7 @@ export async function updateCoupon(id: string, formData: Partial<CouponFormData>
 
 export async function deleteCoupon(id: string) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_coupons?id=eq.${id}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/coupons?id=eq.${id}`, {
       method: 'DELETE',
       headers,
     });

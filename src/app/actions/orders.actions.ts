@@ -11,7 +11,7 @@ const headers = {
 
 export async function getOrders(filters?: { event_id?: string; status?: string }) {
   try {
-    let endpoint = `${SUPABASE_URL}/rest/v1/dulos_tickets?order=created_at.desc&limit=50`;
+    let endpoint = `${SUPABASE_URL}/rest/v1/tickets?order=created_at.desc&limit=50`;
     if (filters?.event_id) endpoint += `&event_id=eq.${filters.event_id}`;
     if (filters?.status) endpoint += `&status=eq.${filters.status}`;
     const res = await fetch(endpoint, { headers, cache: 'no-store' });
@@ -26,8 +26,8 @@ export async function getOrders(filters?: { event_id?: string; status?: string }
 export async function getOrderStats() {
   try {
     const [ticketsRes, zonesRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/dulos_tickets?select=id`, { headers, cache: 'no-store' }),
-      fetch(`${SUPABASE_URL}/rest/v1/dulos_ticket_zones`, { headers, cache: 'no-store' }),
+      fetch(`${SUPABASE_URL}/rest/v1/tickets?select=id`, { headers, cache: 'no-store' }),
+      fetch(`${SUPABASE_URL}/rest/v1/ticket_zones`, { headers, cache: 'no-store' }),
     ]);
     if (!ticketsRes.ok || !zonesRes.ok) throw new Error('Error fetching stats');
     const tickets = await ticketsRes.json();

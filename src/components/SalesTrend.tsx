@@ -119,7 +119,7 @@ export default function SalesTrend({ dailyData }: SalesTrendProps) {
             <path
               d={linePath}
               fill="none"
-              stroke="#E63946"
+              stroke="#EF4444"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -127,7 +127,7 @@ export default function SalesTrend({ dailyData }: SalesTrendProps) {
 
             {points.map((p, i) => (
               <g key={i}>
-                <circle cx={p.x} cy={p.y} r="4" fill="#E63946" />
+                <circle cx={p.x} cy={p.y} r="4" fill="#EF4444" />
                 <circle cx={p.x} cy={p.y} r="2" fill="white" />
               </g>
             ))}
@@ -156,7 +156,7 @@ export default function SalesTrend({ dailyData }: SalesTrendProps) {
         </div>
         <div className="text-right">
           <p className="text-sm text-gray-500">Promedio diario</p>
-          <p className="text-xl font-semibold text-[#E63946]">
+          <p className="text-xl font-semibold text-[#EF4444]">
             {new Intl.NumberFormat('es-MX', {
               style: 'currency',
               currency: 'MXN',

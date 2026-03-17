@@ -20,7 +20,7 @@ async function validateTeamMember(email: string): Promise<{ valid: boolean; erro
 
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/dulos_team?email=eq.${encodeURIComponent(email)}&select=email,is_active`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?email=eq.${encodeURIComponent(email)}&select=email,is_active`,
       {
         headers: {
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -88,7 +88,7 @@ function LoginForm() {
     }
 
     if (data.user?.email) {
-      // Validate against dulos_team
+      // Validate against team_members
       const result = await validateTeamMember(data.user.email);
       if (result.valid) {
         localStorage.setItem("dulos_sec_v", "v4");
@@ -165,11 +165,11 @@ function LoginForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="correo@ejemplo.com" required
-            className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:border-[#E63946] focus:outline-none transition" />
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:border-[#EF4444] focus:outline-none transition" />
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" required
-            className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:border-[#E63946] focus:outline-none transition" />
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:border-[#EF4444] focus:outline-none transition" />
           <button type="submit" disabled={loading}
-            className="w-full bg-[#E63946] hover:bg-[#c62d3a] disabled:opacity-50 text-white font-bold py-3 rounded-lg transition cursor-pointer">
+            className="w-full bg-[#EF4444] hover:bg-[#c62d3a] disabled:opacity-50 text-white font-bold py-3 rounded-lg transition cursor-pointer">
             {loading ? "Verificando..." : "Iniciar Sesión"}
           </button>
         </form>

@@ -32,7 +32,7 @@ function getStatusConfig(percentage: number): {
 } {
   if (percentage > 80) {
     return {
-      barColor: 'bg-[#E63946]',
+      barColor: 'bg-[#EF4444]',
       badgeColor: 'bg-red-100 text-red-800',
       badgeText: 'CRITICO',
     };

@@ -14,7 +14,7 @@ const headers = {
 
 export async function getTickets(filters?: { event_id?: string; status?: string }) {
   try {
-    let endpoint = `${SUPABASE_URL}/rest/v1/dulos_tickets?order=created_at.desc`;
+    let endpoint = `${SUPABASE_URL}/rest/v1/tickets?order=created_at.desc`;
     if (filters?.event_id) endpoint += `&event_id=eq.${filters.event_id}`;
     if (filters?.status) endpoint += `&status=eq.${filters.status}`;
     const res = await fetch(endpoint, { headers, cache: 'no-store' });
@@ -28,7 +28,7 @@ export async function getTickets(filters?: { event_id?: string; status?: string 
 
 export async function validateTicket(ticketId: string) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_tickets?id=eq.${ticketId}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/tickets?id=eq.${ticketId}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ status: 'used', updated_at: new Date().toISOString() }),
@@ -44,7 +44,7 @@ export async function validateTicket(ticketId: string) {
 
 export async function getTicketStats() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_tickets?select=id,status`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/tickets?select=id,status`, {
       headers,
       cache: 'no-store',
     });

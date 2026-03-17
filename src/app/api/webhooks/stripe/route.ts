@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const data = event.data?.object;
 
     // Log ALL webhook events
-    await supabasePost("dulos_audit_logs", {
+    await supabasePost("audit_logs", {
       user_email: "stripe-webhook",
       action: event.type,
       entity_type: "stripe",
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       // ✅ Pago completado
       case "checkout.session.completed": {
         if (data) {
-          await supabasePost("dulos_orders", {
+          await supabasePost("orders", {
             order_number: `DUL-${Date.now()}`,
             customer_name: data.customer_details?.name || "Cliente",
             customer_email: data.customer_details?.email || "",
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       // ✅ Pago exitoso
       case "payment_intent.succeeded": {
         if (data) {
-          await supabasePost("dulos_audit_logs", {
+          await supabasePost("audit_logs", {
             user_email: "stripe",
             action: "Pago confirmado",
             entity_type: "payment",
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       // ❌ Pago fallido
       case "payment_intent.payment_failed": {
         if (data) {
-          await supabasePost("dulos_escalations", {
+          await supabasePost("escalations", {
             client_id: data.receipt_email || data.id,
             reason: "pago_fallido",
             event_mentioned: "",
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       // 🚨 Disputa/Chargeback
       case "charge.dispute.created": {
         if (data) {
-          await supabasePost("dulos_escalations", {
+          await supabasePost("escalations", {
             client_id: data.charge || data.id,
             reason: "disputa",
             event_mentioned: "",
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       // 💰 Reembolso
       case "charge.refunded": {
         if (data) {
-          await supabasePost("dulos_audit_logs", {
+          await supabasePost("audit_logs", {
             user_email: "stripe",
             action: "Reembolso procesado",
             entity_type: "refund",

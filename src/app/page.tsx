@@ -28,7 +28,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 async function validateTeamMember(email: string): Promise<{ valid: boolean; user: any; error?: string }> {
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/dulos_team?email=eq.${encodeURIComponent(email)}&select=*`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?email=eq.${encodeURIComponent(email)}&select=*`,
       {
         headers: {
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -86,7 +86,7 @@ export default function Home() {
       }
 
       const email = session.user.email.toLowerCase();
-      // Set user from session directly — middleware already validated dulos_team
+      // Set user from session directly — middleware already validated team_members
       const userObj = {
         email,
         name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split("@")[0],

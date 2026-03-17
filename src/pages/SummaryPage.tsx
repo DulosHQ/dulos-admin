@@ -68,7 +68,7 @@ interface ZoneDetail {
 }
 
 const emptyMetrics = {
-  revenue: { label: 'Ingresos del Mes', value: '$0 MXN', trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0,0] },
+  revenue: { label: 'Ingresos Totales', value: '$0 MXN', trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0,0] },
   tickets: { label: 'Boletos Vendidos', value: '0', trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0,0] },
   occupancy: { label: 'Ocupación Promedio', value: '0%', trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0,0] },
   upcoming: { label: 'Funciones Próximas', value: '0', trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0,0] },
@@ -169,11 +169,11 @@ export default function SummaryPage() {
         const totalAvailable = zones.reduce((sum, z) => sum + z.available + z.sold, 0);
         const occupancy = totalAvailable > 0 ? Math.round((totalZoneTickets / totalAvailable) * 100) : 0;
 
-        // Calculate commission (15% of total revenue)
-        const commission = totalRevenue * 0.15;
+        // Calculate commission (10% of total revenue)
+        const commission = totalRevenue * 0.10;
 
         setMetrics({
-          revenue: { label: 'Ingresos del Mes', value: `$${totalRevenue.toLocaleString()} MXN`, trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0, totalRevenue > 0 ? 100 : 0] },
+          revenue: { label: 'Ingresos Totales', value: `$${totalRevenue.toLocaleString()} MXN`, trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0, totalRevenue > 0 ? 100 : 0] },
           tickets: { label: 'Boletos Vendidos', value: totalTicketsSold.toLocaleString(), trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0, totalTicketsSold > 0 ? 100 : 0] },
           occupancy: { label: 'Ocupación Promedio', value: `${occupancy}%`, trend: { value: 0, isPositive: occupancy >= 70 }, sparkline: [0,0,0,0, occupancy] },
           upcoming: { label: 'Funciones Próximas', value: String(events.length), trend: { value: 0, isPositive: true }, sparkline: [0,0,0,0, events.length] },
@@ -301,7 +301,7 @@ export default function SummaryPage() {
           zonePriceMap.set(key, z.price);
         });
 
-        // 1. Recent ticket sales (from dulos_tickets - 946 rows available)
+        // 1. Recent ticket sales (from tickets)
         tickets
           .filter(t => t.customer_name && t.created_at)
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -322,7 +322,7 @@ export default function SummaryPage() {
             }
           });
 
-        // 2. Recent checkins (from dulos_checkins - 8 rows available)
+        // 2. Recent checkins (from checkins)
         checkins
           .filter(c => c.customer_name && c.customer_name !== 'DUPLICADO' && c.scanned_at)
           .sort((a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime())
@@ -458,7 +458,7 @@ export default function SummaryPage() {
   if (error) return (
     <div className="flex flex-col items-center justify-center py-12 text-red-500">
       <p className="text-sm font-medium">{error}</p>
-      <button onClick={() => window.location.reload()} className="mt-2 text-xs text-[#E63946] hover:underline">Reintentar</button>
+      <button onClick={() => window.location.reload()} className="mt-2 text-xs text-[#EF4444] hover:underline">Reintentar</button>
     </div>
   );
 
@@ -512,7 +512,7 @@ export default function SummaryPage() {
                 <div
                   key={f.id}
                   onClick={() => handleEventClick(f)}
-                  className={`flex gap-0 rounded-xl border overflow-hidden transition-all hover:shadow-sm cursor-pointer ${isExpanded ? 'ring-2 ring-[#E63946] border-[#E63946]' : hasAlert ? 'border-red-200 bg-red-50/30' : 'border-gray-100 bg-white'}`}
+                  className={`flex gap-0 rounded-xl border overflow-hidden transition-all hover:shadow-sm cursor-pointer ${isExpanded ? 'ring-2 ring-[#EF4444] border-[#EF4444]' : hasAlert ? 'border-red-200 bg-red-50/30' : 'border-gray-100 bg-white'}`}
                 >
                   {f.image_url ? (
                     <img src={f.image_url} alt="" className="w-16 sm:w-20 object-cover flex-shrink-0" />
@@ -526,7 +526,7 @@ export default function SummaryPage() {
                     </div>
                     <p className="text-[11px] sm:text-[12px] text-gray-500 mt-0.5 truncate font-medium">{f.hora} · {f.sala}</p>
                     <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-[11px] sm:text-[12px] font-black text-[#E63946]">${f.revenue.toLocaleString()}</span>
+                      <span className="text-[11px] sm:text-[12px] font-black text-[#EF4444]">${f.revenue.toLocaleString()}</span>
                       <span className={`text-[10px] sm:text-[11px] font-bold ${f.available < 50 ? 'text-red-500' : 'text-emerald-600'}`}>{f.available} disp.</span>
                     </div>
                   </div>
@@ -571,7 +571,7 @@ export default function SummaryPage() {
                     </div>
                     <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${expandedEventData.ocupacion >= 80 ? 'bg-[#E63946]' : expandedEventData.ocupacion >= 50 ? 'bg-amber-500' : 'bg-green-500'}`}
+                        className={`h-full rounded-full transition-all duration-500 ${expandedEventData.ocupacion >= 80 ? 'bg-[#EF4444]' : expandedEventData.ocupacion >= 50 ? 'bg-amber-500' : 'bg-green-500'}`}
                         style={{ width: `${Math.min(expandedEventData.ocupacion, 100)}%` }}
                       />
                     </div>
@@ -666,7 +666,7 @@ export default function SummaryPage() {
                   }
                   // Removed toast notification
                 }}
-                className={`text-xs font-bold ${allActividad.length > 6 || showAllActivity ? 'text-[#E63946] hover:underline cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}
+                className={`text-xs font-bold ${allActividad.length > 6 || showAllActivity ? 'text-[#EF4444] hover:underline cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}
                 disabled={allActividad.length <= 6 && !showAllActivity}
               >
                 {showAllActivity ? 'Mostrar menos' : allActividad.length > 6 ? 'Ver todo' : 'Ver todo'}
@@ -695,7 +695,7 @@ export default function SummaryPage() {
                 <tbody>
                   {paginatedBoletos.map((b) => (
                     <tr key={b.id} className="border-b border-gray-50 last:border-0">
-                      <td className="px-3 py-1.5 font-mono text-xs text-[#E63946]">{b.ticket}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs text-[#EF4444]">{b.ticket}</td>
                       <td className="px-3 py-1.5 text-gray-900 truncate max-w-[100px] sm:max-w-none">{b.cliente}</td>
                       <td className="px-3 py-1.5 text-gray-600 truncate max-w-[120px] hidden sm:table-cell">{b.evento}</td>
                       <td className="px-3 py-1.5 text-gray-500 hidden md:table-cell">{b.zona}</td>

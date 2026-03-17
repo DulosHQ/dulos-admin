@@ -12,7 +12,7 @@ const headers = {
 
 export async function getAuditLog(filters?: { action?: string }) {
   try {
-    let endpoint = `${SUPABASE_URL}/rest/v1/dulos_audit_logs?order=created_at.desc&limit=100`;
+    let endpoint = `${SUPABASE_URL}/rest/v1/audit_logs?order=created_at.desc&limit=100`;
     if (filters?.action) {
       endpoint += `&action=ilike.*${filters.action}*`;
     }
@@ -41,7 +41,7 @@ export async function logAction(
       user_email: user_email || 'system',
       created_at: new Date().toISOString(),
     };
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_audit_logs`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/audit_logs`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

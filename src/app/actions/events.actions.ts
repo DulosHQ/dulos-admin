@@ -15,7 +15,7 @@ const headers = {
 
 export async function getEvents() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_events?order=dates.desc`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/events?order=dates.desc`, {
       headers,
       cache: 'no-store',
     });
@@ -47,7 +47,7 @@ export async function createEvent(formData: EventFormData) {
       image_url: parsed.data.image_url || '',
       buy_url: '',
     };
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_events`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/events`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -78,7 +78,7 @@ export async function updateEvent(id: string, formData: EventFormData) {
       status: parsed.data.status,
       image_url: parsed.data.image_url || '',
     };
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_events?id=eq.${id}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/events?id=eq.${id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify(body),
@@ -94,7 +94,7 @@ export async function updateEvent(id: string, formData: EventFormData) {
 
 export async function archiveEvent(id: string) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/dulos_events?id=eq.${id}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/events?id=eq.${id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ status: 'archived' }),
