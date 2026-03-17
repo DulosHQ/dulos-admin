@@ -8,8 +8,10 @@ import {
   fetchZones,
   fetchAllOrders,
   fetchSchedules,
+  fetchProyectos,
   getVenueMap,
   getVenueName,
+  getVenueCity,
   DulosEvent,
   TicketZone,
   Order,
@@ -25,9 +27,12 @@ interface ProjectDisplay {
   name: string;
   producer: string;
   image_url: string;
-  status: 'PUBLICADO' | 'BORRADOR' | 'ARCHIVADO' | 'FINALIZADO';
+  status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED' | 'FINALIZADO';
   events: EventDisplay[];
   isPast: boolean;
+  revenue: number;
+  commission: number;
+  eventCount: number;
 }
 
 interface EventDisplay {
@@ -97,10 +102,10 @@ type ProjectFormData = z.infer<typeof projectSchema>;
 
 const getStatusColor = (status: ProjectDisplay['status']) => {
   switch (status) {
-    case 'PUBLICADO': return 'bg-green-500';
-    case 'BORRADOR': return 'bg-gray-500';
-    case 'ARCHIVADO': return 'bg-red-500';
-    case 'FINALIZADO': return 'bg-gray-400';
+    case 'PUBLISHED': return 'bg-green-500';
+    case 'DRAFT': return 'bg-yellow-500';
+    case 'ARCHIVED': return 'bg-gray-500';
+    case 'FINALIZADO': return 'bg-blue-500';
   }
 };
 
@@ -113,7 +118,16 @@ const getOccupancyColor = (percentage: number) => {
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(amount);
 
-const formatDate = (dateStr: string) => dateStr || 'TBD';
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return 'TBD';
+  try {
+    return new Date(dateStr).toLocaleDateString('es-MX', {
+      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+  } catch {
+    return dateStr || 'TBD';
+  }
+};
 
 const mapPaymentStatus = (status: string): OrderDisplay['estado'] => {
   if (status === 'paid' || status === 'completed') return 'Completado';
@@ -512,6 +526,7 @@ type FilterTab = 'todos' | 'proximos' | 'pasados';
 export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectDisplay[]>([]);
+  const [events, setEvents] = useState<DulosEvent[]>([]);
   const [venueMap, setVenueMap] = useState<Map<string, Venue>>(new Map());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -532,7 +547,8 @@ export default function EventsPage() {
 
   async function loadData() {
     try {
-      const [events, zones, orders, schedules, venues] = await Promise.all([
+      const [projectsTab, events, zones, orders, schedules, venues] = await Promise.all([
+        fetchProyectos().catch(() => ({ headers: [], rows: [], totalRows: 0 })),
         fetchAllEvents().catch(() => []),
         fetchZones().catch(() => []),
         fetchAllOrders().catch(() => []),
@@ -541,15 +557,47 @@ export default function EventsPage() {
       ]);
 
       setVenueMap(venues);
+      setEvents(events);
 
-      const projectMap = new Map<string, DulosEvent[]>();
-      events.forEach((event) => {
-        const projectName = event.name.split(' - ')[0] || event.name;
-        if (!projectMap.has(projectName)) projectMap.set(projectName, []);
-        projectMap.get(projectName)!.push(event);
-      });
+      // Helper functions to parse concatenated strings from dashboard_tabs
+      const parseProject = (proyectoField: string) => {
+        const idMatch = proyectoField.match(/(.+?)ID:\s*(.+)$/);
+        if (idMatch) {
+          return { name: idMatch[1].trim(), id: idMatch[2].trim() };
+        }
+        return { name: proyectoField, id: proyectoField };
+      };
 
-      const projectsData: ProjectDisplay[] = Array.from(projectMap.entries()).map(([name, projectEvents]) => {
+      const parseProducer = (producerField: string) => {
+        // If it looks like money (starts with $), return a default producer
+        if (producerField.startsWith('$')) {
+          return 'Dulos Entertainment';
+        }
+        return producerField;
+      };
+
+      const parseMoney = (moneyField: string): number => {
+        if (!moneyField) return 0;
+        const cleaned = moneyField.replace(/[$,+]/g, '');
+        return parseFloat(cleaned) || 0;
+      };
+
+      const parseStatus = (statusField: string): ProjectDisplay['status'] => {
+        if (statusField.includes('PUBLISHED')) return 'PUBLISHED';
+        if (statusField.includes('DRAFT')) return 'DRAFT';
+        if (statusField.includes('ARCHIVED')) return 'ARCHIVED';
+        return 'DRAFT';
+      };
+
+      // Process projects from dashboard_tabs
+      const projectsData: ProjectDisplay[] = projectsTab.rows.map((row) => {
+        const [proyecto, productor, estado, eventos, ingresos, comision] = row;
+
+        const parsedProject = parseProject(proyecto || '');
+        const projectEvents = events.filter(event =>
+          event.name.includes(parsedProject.name) || event.id === parsedProject.id
+        );
+
         const eventsDisplay: EventDisplay[] = projectEvents.map((event) => {
           const eventZones = zones.filter((z) => z.event_id === event.id);
           const eventOrders = orders.filter((o) => o.event_id === event.id);
@@ -574,8 +622,8 @@ export default function EventsPage() {
           return {
             id: event.id,
             name: event.name,
-            venue: getVenueName(event.venue_id, venues),
-            date: event.start_date ? new Date(event.start_date).toLocaleDateString('es-MX') : 'TBD',
+            venue: getVenueName(event.venue_id, venues) + (getVenueCity(event.venue_id, venues) ? `, ${getVenueCity(event.venue_id, venues)}` : ''),
+            date: event.start_date ? formatDate(event.start_date) : 'TBD',
             image_url: event.image_url || '',
             ticketsSold,
             totalTickets,
@@ -618,23 +666,28 @@ export default function EventsPage() {
         });
 
         const allPast = projectEvents.every((e) => isPastDate(e.start_date));
+        const parsedRevenue = parseMoney(ingresos || '');
+        const parsedCommission = parseMoney(comision || '');
 
-        const status: ProjectDisplay['status'] = allPast
-          ? 'FINALIZADO'
-          : projectEvents.some((e) => e.status === 'active')
-            ? 'PUBLICADO'
-            : projectEvents.some((e) => e.status === 'draft')
-              ? 'BORRADOR'
-              : 'ARCHIVADO';
+        // Determine status from events or state
+        let finalStatus: ProjectDisplay['status'] = parseStatus(estado || '');
+        if (allPast) {
+          finalStatus = 'FINALIZADO';
+        } else if (projectEvents.some((e) => e.status === 'active')) {
+          finalStatus = 'PUBLISHED';
+        }
 
         return {
-          id: name,
-          name,
-          producer: 'Dulos Entertainment',
+          id: parsedProject.id,
+          name: parsedProject.name,
+          producer: parseProducer(productor || ''),
           image_url: eventsDisplay[0]?.image_url || '',
-          status,
+          status: finalStatus,
           events: eventsDisplay,
           isPast: allPast,
+          revenue: parsedRevenue,
+          commission: parsedCommission,
+          eventCount: parseInt(eventos || '0') || eventsDisplay.length,
         };
       });
 
@@ -652,8 +705,18 @@ export default function EventsPage() {
 
   const filteredProjects = projects
     .filter((p) => {
-      if (filterTab === 'proximos') return !p.isPast;
-      if (filterTab === 'pasados') return p.isPast;
+      if (filterTab === 'proximos') {
+        return p.events.some(event => {
+          const eventInProjects = events.find(e => e.id === event.id);
+          return eventInProjects?.start_date && new Date(eventInProjects.start_date) > new Date();
+        });
+      }
+      if (filterTab === 'pasados') {
+        return p.events.every(event => {
+          const eventInProjects = events.find(e => e.id === event.id);
+          return eventInProjects?.start_date && new Date(eventInProjects.start_date) < new Date();
+        });
+      }
       return true;
     })
     .filter(
@@ -663,12 +726,13 @@ export default function EventsPage() {
     );
 
   const getProjectTotals = (project: ProjectDisplay) => {
-    const totalRevenue = project.events.reduce((sum, e) => sum + e.revenue, 0);
-    const eventCount = project.events.length;
+    // Use parsed revenue from dashboard_tabs if available, otherwise calculate from events
+    const totalRevenue = project.revenue || project.events.reduce((sum, e) => sum + e.revenue, 0);
+    const eventCount = project.eventCount || project.events.length;
     const totalSold = project.events.reduce((s, e) => s + e.ticketsSold, 0);
     const totalCap = project.events.reduce((s, e) => s + e.totalTickets, 0);
     const occupancy = totalCap > 0 ? (totalSold / totalCap) * 100 : 0;
-    return { totalRevenue, eventCount, occupancy };
+    return { totalRevenue, eventCount, occupancy, commission: project.commission };
   };
 
   const handleCreateSubmit = async (data: ProjectFormData) => {
@@ -736,7 +800,7 @@ export default function EventsPage() {
       productor: project.producer,
       imagen_url: project.image_url,
       descripcion: '',
-      estado: project.status === 'PUBLICADO' ? 'Publicado' : 'Borrador',
+      estado: project.status === 'PUBLISHED' ? 'Publicado' : 'Borrador',
     });
     setEditingProjectId(project.id);
     setModalOpen(true);
@@ -849,7 +913,7 @@ export default function EventsPage() {
         <div className="space-y-2">
           {filteredProjects.map((project) => {
             const isExpanded = expandedId === project.id;
-            const { totalRevenue, eventCount, occupancy } = getProjectTotals(project);
+            const { totalRevenue, eventCount, occupancy, commission } = getProjectTotals(project);
 
             return (
               <div key={project.id} className="overflow-hidden rounded-lg bg-white shadow-md">
@@ -887,6 +951,9 @@ export default function EventsPage() {
                     )}
                     <div className="text-right hidden sm:block">
                       <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatCurrency(totalRevenue)}</p>
+                      {commission > 0 && (
+                        <p className="text-[10px] sm:text-xs text-green-600">+{formatCurrency(commission)}</p>
+                      )}
                       <p className="text-[10px] sm:text-xs text-gray-500">{eventCount} evento{eventCount !== 1 ? 's' : ''}</p>
                     </div>
                     <ActionsMenu
