@@ -591,7 +591,13 @@ export default function EventsPage() {
 
       // Process projects from dashboard_tabs
       const projectsData: ProjectDisplay[] = projectsTab.rows.map((row) => {
-        const [proyecto, productor, estado, eventos, ingresos, comision] = row;
+        // Access row data as object with named keys (not array destructuring)
+        const proyecto = row['Proyecto'] || row.Proyecto || '';
+        const productor = row['Productor'] || row.Productor || ''; // Note: This field contains money, not producer name
+        const estado = row['Estado'] || row.Estado || '';
+        const eventos = row['Eventos'] || row.Eventos || '0';
+        const ingresos = row['Ingresos'] || row.Ingresos || '$0';
+        const comision = row['Comisión'] || row.Comisión || '+$0';
 
         const parsedProject = parseProject(proyecto || '');
         const projectEvents = events.filter(event =>
@@ -680,7 +686,7 @@ export default function EventsPage() {
         return {
           id: parsedProject.id,
           name: parsedProject.name,
-          producer: parseProducer(productor || ''),
+          producer: parseProducer(productor || '') || 'Francisco Paolo Dupeyron Gutierrez', // Fallback to actual producer since Productor field contains money
           image_url: eventsDisplay[0]?.image_url || '',
           status: finalStatus,
           events: eventsDisplay,

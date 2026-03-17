@@ -398,21 +398,17 @@ export default function FinancePage() {
 
     // --- Transactions from pedidos data (REAL DATA) ---
     const transactionsFromPedidos: Transaction[] = [];
-    if (pedidosData.rows && pedidosData.headers) {
-      const idIndex = pedidosData.headers.findIndex(h => h === 'ID Pedido');
-      const eventoIndex = pedidosData.headers.findIndex(h => h === 'Evento');
-      const clienteIndex = pedidosData.headers.findIndex(h => h === 'Cliente');
-      const fechaIndex = pedidosData.headers.findIndex(h => h === 'Fecha');
-      const totalIndex = pedidosData.headers.findIndex(h => h === 'Total');
+    if (pedidosData.rows && pedidosData.rows.length > 0) {
 
       pedidosData.rows.forEach(row => {
-        if (!row || !Array.isArray(row)) return;
+        if (!row || typeof row !== 'object') return;
 
-        const id = row[idIndex] || '';
-        const evento = row[eventoIndex] || '';
-        const clienteData = row[clienteIndex] || '';
-        const fecha = row[fechaIndex] || new Date().toISOString();
-        const totalStr = row[totalIndex] || '$0';
+        // Access row data as object with named keys (not array indexing)
+        const id = row['ID Pedido'] || row.ID_Pedido || '';
+        const evento = row['Evento'] || row.Evento || '';
+        const clienteData = row['Cliente'] || row.Cliente || '';
+        const fecha = row['Fecha'] || row.Fecha || new Date().toISOString();
+        const totalStr = row['Total'] || row.Total || '$0';
 
         // Parse cliente (format: "Name\nEmail")
         const [customerName, customerEmail] = String(clienteData).split('\n');

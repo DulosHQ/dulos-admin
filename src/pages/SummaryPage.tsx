@@ -11,6 +11,7 @@ import {
   fetchCheckins,
   fetchEscalations,
   fetchTickets,
+  fetchSchedules,
   fetchSalesSummary,
   getVenueMap,
   getVenueName,
@@ -21,6 +22,7 @@ import {
   Checkin,
   Escalation,
   Ticket,
+  Schedule,
   Venue,
   SalesSummary,
 } from '../lib/supabase';
@@ -124,6 +126,7 @@ export default function SummaryPage() {
   const [allBoletos, setAllBoletos] = useState<{ id: string; ticket: string; cliente: string; evento: string; zona: string; status: string; fecha: string }[]>([]);
   const [allZones, setAllZones] = useState<TicketZone[]>([]);
   const [allEvents, setAllEvents] = useState<DulosEvent[]>([]);
+  const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
   const [venueMap, setVenueMap] = useState<Map<string, Venue>>(new Map());
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [allActividad, setAllActividad] = useState<Actividad[]>([]);
@@ -135,19 +138,21 @@ export default function SummaryPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [events, zones, orders, checkins, escalations, tickets, venues, salesData] = await Promise.all([
+        const [events, zones, orders, checkins, escalations, tickets, schedules, venues, salesData] = await Promise.all([
           fetchEvents().catch(() => [] as DulosEvent[]),
           fetchZones().catch(() => [] as TicketZone[]),
           fetchOrders().catch(() => [] as Order[]),
           fetchCheckins().catch(() => [] as Checkin[]),
           fetchEscalations().catch(() => [] as Escalation[]),
           fetchTickets().catch(() => [] as Ticket[]),
+          fetchSchedules().catch(() => [] as Schedule[]),
           getVenueMap().catch(() => new Map<string, Venue>()),
           fetchSalesSummary().catch(() => [] as SalesSummary[]),
         ]);
 
         setAllZones(zones);
         setAllEvents(events);
+        setAllSchedules(schedules);
         setVenueMap(venues);
         setSalesSummary(salesData);
 
@@ -235,7 +240,23 @@ export default function SummaryPage() {
           const venueName = getVenueName(event.venue_id, venues);
           const venueCity = getVenueCity(event.venue_id, venues);
           const venueDisplay = venueCity ? `${venueName} · ${venueCity}` : venueName;
-          const eventDate = event.start_date ? new Date(event.start_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD';
+
+          // Use schedule dates when available (fix for date format issue)
+          const eventSchedules = schedules.filter((s) => s.event_id === event.id);
+          const scheduleDate = eventSchedules.length > 0 ? eventSchedules[0].date : null;
+          let eventDate = 'TBD';
+
+          if (scheduleDate) {
+            // Use schedule date (more accurate)
+            eventDate = new Date(scheduleDate).toLocaleDateString('es-MX', {
+              day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+          } else if (event.start_date) {
+            // Fallback to event start_date
+            eventDate = new Date(event.start_date).toLocaleDateString('es-MX', {
+              day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+          }
           return {
             id: idx + 1,
             eventId: event.id,
@@ -409,30 +430,30 @@ export default function SummaryPage() {
           <div className="section-card-header !py-2 !px-3">
             <span className="font-bold text-gray-900 text-sm">Ingresos por Evento</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
-            {salesSummary.slice(0, 6).map((sale, idx) => {
-              const event = allEvents.find((e) => e.id === sale.event_id);
-              return (
-                <div
-                  key={idx}
-                  className="flex gap-0 rounded-xl border overflow-hidden bg-white border-gray-100 hover:shadow-sm transition-all"
-                >
-                  {event?.image_url ? (
-                    <img src={event.image_url} alt="" className="w-16 sm:w-20 object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-16 sm:w-20 bg-gray-100 flex items-center justify-center flex-shrink-0">🎭</div>
-                  )}
-                  <div className="flex-1 min-w-0 flex flex-col justify-center py-2 sm:py-2.5 px-2 sm:px-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-extrabold text-gray-900 text-xs sm:text-[13px] truncate leading-tight">{sale.event_name}</p>
-                      <span className="text-xs sm:text-[13px] font-black flex-shrink-0 text-green-600">${sale.total_revenue.toLocaleString()}</span>
+          <div className="p-3 space-y-2">
+            {salesSummary
+              .sort((a, b) => b.total_revenue - a.total_revenue)
+              .slice(0, 6)
+              .map((sale, idx) => {
+                const event = allEvents.find((e) => e.id === sale.event_id);
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 p-2 rounded-lg bg-white border border-gray-100 hover:shadow-sm transition-all"
+                  >
+                    {event?.image_url ? (
+                      <img src={event.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-sm">🎭</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 text-sm truncate">{sale.event_name}</p>
+                      <p className="text-xs text-gray-500">{sale.venue_name}</p>
                     </div>
-                    <p className="text-[11px] sm:text-[12px] text-gray-500 mt-1 font-medium">{sale.total_orders} órdenes · {sale.total_tickets_sold} boletos</p>
-                    <p className="text-[11px] sm:text-[12px] text-gray-500 font-medium">{sale.venue_name}</p>
+                    <span className="text-sm font-black text-green-600 flex-shrink-0">${sale.total_revenue.toLocaleString()}</span>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       )}

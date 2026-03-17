@@ -519,15 +519,15 @@ export default function OpsPage() {
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-green-50 p-3 rounded-lg">
                   <p className="text-green-600 font-bold text-sm">ACTIVE</p>
-                  <p className="text-2xl font-bold text-green-700">{reservas.filter(r => r[reservasHeaders.indexOf('Estado')] === 'ACTIVE').length}</p>
+                  <p className="text-2xl font-bold text-green-700">{reservas.filter(r => r['Estado'] || r.Estado === 'ACTIVE').length}</p>
                 </div>
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-blue-600 font-bold text-sm">CONFIRMED</p>
-                  <p className="text-2xl font-bold text-blue-700">{reservas.filter(r => r[reservasHeaders.indexOf('Estado')] === 'CONFIRMED').length}</p>
+                  <p className="text-2xl font-bold text-blue-700">{reservas.filter(r => r['Estado'] || r.Estado === 'CONFIRMED').length}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <p className="text-gray-600 font-bold text-sm">EXPIRED</p>
-                  <p className="text-2xl font-bold text-gray-700">{reservas.filter(r => r[reservasHeaders.indexOf('Estado')] === 'EXPIRED').length}</p>
+                  <p className="text-2xl font-bold text-gray-700">{reservas.filter(r => r['Estado'] || r.Estado === 'EXPIRED').length}</p>
                 </div>
               </div>
 
@@ -548,29 +548,29 @@ export default function OpsPage() {
                       {reservas
                         .filter(r => {
                           if (!reservasSearch) return true
-                          const evento = parseEventoName(r[reservasHeaders.indexOf('Evento')] || '')
-                          const cliente = parseClienteName(r[reservasHeaders.indexOf('Cliente')] || '')
+                          const evento = parseEventoName(r['Evento'] || r.Evento || '')
+                          const cliente = parseClienteName(r['Cliente'] || r.Cliente || '')
                           return evento.toLowerCase().includes(reservasSearch.toLowerCase()) ||
                                  cliente.toLowerCase().includes(reservasSearch.toLowerCase())
                         })
                         .slice(reservasPage * PAGE_SIZE, (reservasPage + 1) * PAGE_SIZE)
                         .map((reserva, i) => (
                           <tr key={i} className="border-t border-gray-50 hover:bg-gray-50">
-                            <td className="py-2 px-3 truncate max-w-[150px]" title={reserva[reservasHeaders.indexOf('Evento')]}>
-                              {parseEventoName(reserva[reservasHeaders.indexOf('Evento')] || '')}
+                            <td className="py-2 px-3 truncate max-w-[150px]" title={reserva['Evento'] || reserva.Evento}>
+                              {parseEventoName(reserva['Evento'] || reserva.Evento || '')}
                             </td>
                             <td className="py-2 px-3 truncate max-w-[120px]">
-                              {parseClienteName(reserva[reservasHeaders.indexOf('Cliente')] || '')}
+                              {parseClienteName(reserva['Cliente'] || reserva.Cliente || '')}
                             </td>
-                            <td className="py-2 px-3">{reserva[reservasHeaders.indexOf('Tipo de Boleto')] || ''}</td>
-                            <td className="py-2 px-3 font-bold">{reserva[reservasHeaders.indexOf('Cantidad')] || ''}</td>
+                            <td className="py-2 px-3">{reserva['Tipo de Boleto'] || reserva.Tipo_de_Boleto || ''}</td>
+                            <td className="py-2 px-3 font-bold">{reserva['Cantidad'] || reserva.Cantidad || ''}</td>
                             <td className="py-2 px-3">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${
-                                reserva[reservasHeaders.indexOf('Estado')] === 'ACTIVE' ? 'bg-green-500' :
-                                reserva[reservasHeaders.indexOf('Estado')] === 'CONFIRMED' ? 'bg-blue-500' :
+                                reserva['Estado'] || reserva.Estado === 'ACTIVE' ? 'bg-green-500' :
+                                reserva['Estado'] || reserva.Estado === 'CONFIRMED' ? 'bg-blue-500' :
                                 'bg-gray-400'
                               }`}>
-                                {reserva[reservasHeaders.indexOf('Estado')] || ''}
+                                {reserva['Estado'] || reserva.Estado || ''}
                               </span>
                             </td>
                           </tr>
@@ -603,19 +603,19 @@ export default function OpsPage() {
               <div className="grid grid-cols-4 gap-3">
                 <div className="bg-green-50 p-3 rounded-lg">
                   <p className="text-green-600 font-bold text-sm">VALID</p>
-                  <p className="text-xl font-bold text-green-700">{boletos.filter(b => b[boletosHeaders.indexOf('Estado')] === 'VALID').length}</p>
+                  <p className="text-xl font-bold text-green-700">{boletos.filter(b => b['Estado'] || b.Estado === 'VALID').length}</p>
                 </div>
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-blue-600 font-bold text-sm">USED</p>
-                  <p className="text-xl font-bold text-blue-700">{boletos.filter(b => b[boletosHeaders.indexOf('Estado')] === 'USED').length}</p>
+                  <p className="text-xl font-bold text-blue-700">{boletos.filter(b => b['Estado'] || b.Estado === 'USED').length}</p>
                 </div>
                 <div className="bg-red-50 p-3 rounded-lg">
                   <p className="text-red-600 font-bold text-sm">EXPIRED</p>
-                  <p className="text-xl font-bold text-red-700">{boletos.filter(b => b[boletosHeaders.indexOf('Estado')] === 'EXPIRED').length}</p>
+                  <p className="text-xl font-bold text-red-700">{boletos.filter(b => b['Estado'] || b.Estado === 'EXPIRED').length}</p>
                 </div>
                 <div className="bg-orange-50 p-3 rounded-lg">
                   <p className="text-orange-600 font-bold text-sm">REFUNDED</p>
-                  <p className="text-xl font-bold text-orange-700">{boletos.filter(b => b[boletosHeaders.indexOf('Estado')] === 'REFUNDED').length}</p>
+                  <p className="text-xl font-bold text-orange-700">{boletos.filter(b => b['Estado'] || b.Estado === 'REFUNDED').length}</p>
                 </div>
               </div>
 
@@ -646,27 +646,27 @@ export default function OpsPage() {
                         .map((boleto, i) => (
                           <tr key={i} className="border-t border-gray-50 hover:bg-gray-50">
                             <td className="py-2 px-3 font-mono text-[#EF4444] text-[11px]">
-                              {String(boleto[boletosHeaders.indexOf('Boleto')] || '').substring(0, 8)}...
+                              {String(boleto['Boleto'] || boleto.Boleto || '').substring(0, 8)}...
                             </td>
                             <td className="py-2 px-3 truncate max-w-[120px]">
-                              {parseEventoName(boleto[boletosHeaders.indexOf('Evento')] || '')}
+                              {parseEventoName(boleto['Evento'] || boleto.Evento || '')}
                             </td>
                             <td className="py-2 px-3 truncate max-w-[100px]">
-                              {parseClienteName(boleto[boletosHeaders.indexOf('Cliente')] || '')}
+                              {parseClienteName(boleto['Cliente'] || boleto.Cliente || '')}
                             </td>
-                            <td className="py-2 px-3">{boleto[boletosHeaders.indexOf('Tipo')] || ''}</td>
+                            <td className="py-2 px-3">{boleto['Tipo'] || boleto.Tipo || ''}</td>
                             <td className="py-2 px-3 font-bold">
-                              ${parseMonto(boleto[boletosHeaders.indexOf('Monto')] || '0').toLocaleString()}
+                              ${parseMonto(boleto['Monto'] || boleto.Monto || '0').toLocaleString()}
                             </td>
                             <td className="py-2 px-3">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${
-                                boleto[boletosHeaders.indexOf('Estado')] === 'VALID' ? 'bg-green-500' :
-                                boleto[boletosHeaders.indexOf('Estado')] === 'USED' ? 'bg-blue-500' :
-                                boleto[boletosHeaders.indexOf('Estado')] === 'EXPIRED' ? 'bg-red-500' :
-                                boleto[boletosHeaders.indexOf('Estado')] === 'REFUNDED' ? 'bg-orange-500' :
+                                boleto['Estado'] || boleto.Estado === 'VALID' ? 'bg-green-500' :
+                                boleto['Estado'] || boleto.Estado === 'USED' ? 'bg-blue-500' :
+                                boleto['Estado'] || boleto.Estado === 'EXPIRED' ? 'bg-red-500' :
+                                boleto['Estado'] || boleto.Estado === 'REFUNDED' ? 'bg-orange-500' :
                                 'bg-gray-400'
                               }`}>
-                                {boleto[boletosHeaders.indexOf('Estado')] || ''}
+                                {boleto['Estado'] || boleto.Estado || ''}
                               </span>
                             </td>
                           </tr>
