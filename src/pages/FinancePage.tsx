@@ -701,20 +701,22 @@ export default function FinancePage() {
                 <span className="section-card-title">Ingresos Diarios</span>
               </div>
               <div className="section-card-body">
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={dailyRevenueData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#EF4444" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="label" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={50} />
-                    <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'Ingresos']} />
-                    <Area type="monotone" dataKey="amount" stroke="#EF4444" fill="url(#revenueGrad)" strokeWidth={2} dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div style={{ width: '100%', minHeight: 200 }}>
+                  <ResponsiveContainer width="100%" height={200} minWidth={50} minHeight={150}>
+                    <AreaChart data={dailyRevenueData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#EF4444" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="label" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={50} />
+                      <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'Ingresos']} />
+                      <Area type="monotone" dataKey="amount" stroke="#EF4444" fill="url(#revenueGrad)" strokeWidth={2} dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           )}
@@ -810,14 +812,16 @@ export default function FinancePage() {
                 <span className="section-card-title">Ventas por Dia de la Semana</span>
               </div>
               <div className="section-card-body">
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={dayOfWeekData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
-                    <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={50} />
-                    <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'Ventas']} />
-                    <Bar dataKey="sales" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div style={{ width: '100%', minHeight: 250 }}>
+                  <ResponsiveContainer width="100%" height={250} minWidth={50} minHeight={200}>
+                    <BarChart data={dayOfWeekData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                      <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={50} />
+                      <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'Ventas']} />
+                      <Bar dataKey="sales" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 

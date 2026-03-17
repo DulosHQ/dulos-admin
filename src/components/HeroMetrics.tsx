@@ -119,7 +119,7 @@ function MetricCard({ metric }: { metric: MetricData }) {
 
 export default function HeroMetrics({ revenue, tickets, occupancy, upcoming, commission }: HeroMetricsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
       <MetricCard metric={revenue} />
       <MetricCard metric={tickets} />
       <MetricCard metric={occupancy} />
