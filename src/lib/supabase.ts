@@ -780,7 +780,7 @@ export async function fetchVenueSeats(venueId: string): Promise<VenueSeat[]> {
   try {
     return await supabaseFetch<VenueSeat[]>(`venue_seats?venue_id=eq.${venueId}&order=sort_order.asc`);
   } catch (error) {
-    console.error('Error fetching venue seats:', error);
+    // silent fail
     return [];
   }
 }
@@ -788,8 +788,8 @@ export async function fetchVenueSeats(venueId: string): Promise<VenueSeat[]> {
 export async function fetchEventSections(eventId: string): Promise<EventSection[]> {
   try {
     return await supabaseFetch<EventSection[]>(`event_sections?event_id=eq.${eventId}&order=sort_order.asc`);
-  } catch (error) {
-    console.error('Error fetching event sections:', error);
+  } catch {
+    // Table may not exist yet — silent fail
     return [];
   }
 }
@@ -798,7 +798,7 @@ export async function fetchEventSectionSeats(sectionId: string): Promise<EventSe
   try {
     return await supabaseFetch<EventSectionSeat[]>(`event_section_seats?event_section_id=eq.${sectionId}`);
   } catch (error) {
-    console.error('Error fetching section seats:', error);
+    // silent fail
     return [];
   }
 }
@@ -821,7 +821,7 @@ export async function fetchEventSectionSeatsForEvent(eventId: string): Promise<(
       section_name: sectionMap.get(seat.event_section_id) || '',
     }));
   } catch (error) {
-    console.error('Error fetching event section seats:', error);
+    // silent fail
     return [];
   }
 }
@@ -849,7 +849,7 @@ export async function fetchDispersions(): Promise<Dispersion[]> {
   try {
     return await supabaseFetch<Dispersion[]>('dispersions?order=created_at.desc');
   } catch (error) {
-    console.error('Error fetching dispersions:', error);
+    // silent fail
     return [];
   }
 }

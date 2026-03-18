@@ -555,11 +555,14 @@ export default function FinancePage() {
     const ids = new Set(eventIds || [eventId]);
     const zones = rawZones.filter(z => ids.has(z.event_id));
     setExpandedEventZones(zones);
-    // Try to fetch event sections (Paolo's seat architecture) for primary
+    // Try to fetch event sections (Paolo's seat architecture) — silently fail if table doesn't exist
     try {
       const sections = await fetchEventSections(eventId);
       setExpandedEventSections(sections);
-    } catch { setExpandedEventSections([]); }
+    } catch {
+      // event_sections table may not exist yet — silent fail
+      setExpandedEventSections([]);
+    }
   };
 
   // Reset txPage when filters change
