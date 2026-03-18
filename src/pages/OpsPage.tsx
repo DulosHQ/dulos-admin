@@ -487,26 +487,26 @@ export default function OpsPage() {
                   </div>
                 </div>
                 <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 sticky top-0">
+                  <table className="data-table">
+                    <thead>
                       <tr>
-                        <th className="text-left py-1.5 px-2 sm:px-3 font-semibold text-gray-600">Ticket</th>
-                        <th className="text-left py-1.5 px-2 sm:px-3 font-semibold text-gray-600">Cliente</th>
-                        <th className="text-left py-1.5 px-2 sm:px-3 font-semibold text-gray-600 hidden sm:table-cell">Evento</th>
-                        <th className="text-left py-1.5 px-2 sm:px-3 font-semibold text-gray-600">Hora</th>
-                        <th className="text-left py-1.5 px-2 sm:px-3 font-semibold text-gray-600"></th>
+                        <th>Ticket</th>
+                        <th>Cliente</th>
+                        <th className="hidden sm:table-cell">Evento</th>
+                        <th>Hora</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedCheckins.map((c, i) => (
-                        <tr key={i} className="border-t border-gray-50 hover:bg-gray-50">
-                          <td className="py-1.5 px-2 sm:px-3 font-mono text-[#EF4444]">{c.ticket_number}</td>
-                          <td className="py-1.5 px-2 sm:px-3 truncate max-w-[80px] sm:max-w-none">{c.customer_name}</td>
-                          <td className="py-1.5 px-2 sm:px-3 text-gray-600 hidden sm:table-cell truncate max-w-[100px]">{c.event_name}</td>
-                          <td className="py-1.5 px-2 sm:px-3 text-gray-500">{formatTime(c.scanned_at)}</td>
-                          <td className="py-1.5 px-2 sm:px-3">
-                            <span className={c.status === 'success' || c.status === 'valid' ? 'text-green-500' : 'text-red-500'}>
-                              {c.status === 'success' || c.status === 'valid' ? '✓' : '✗'}
+                        <tr key={i}>
+                          <td className="font-mono text-[#EF4444] font-bold">{c.ticket_number}</td>
+                          <td className="truncate max-w-[80px] sm:max-w-none">{c.customer_name}</td>
+                          <td className="hidden sm:table-cell truncate max-w-[100px]">{c.event_name}</td>
+                          <td>{formatTime(c.scanned_at)}</td>
+                          <td>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold text-white ${c.status === 'success' || c.status === 'valid' ? 'bg-green-500' : 'bg-red-500'}`}>
+                              {c.status === 'success' || c.status === 'valid' ? '✓ OK' : '✗ Fallo'}
                             </span>
                           </td>
                         </tr>
@@ -931,28 +931,43 @@ export default function OpsPage() {
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-[#1E293B]">Recuperación de Boletos</h2>
               {ticketRecovery.length > 0 ? (
-                <div className="space-y-3">
-                  {ticketRecovery.map(tr => (
-                    <div key={tr.id} className="bg-white rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="font-bold text-sm text-gray-900">{tr.customer_name}</p>
-                          <p className="text-xs text-gray-500">{tr.customer_email}</p>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${
-                          tr.status === 'completed' ? 'bg-green-500' :
-                          tr.status === 'sent' ? 'bg-blue-500' :
-                          'bg-yellow-500'
-                        }`}>
-                          {tr.status === 'completed' ? 'Completado' :
-                           tr.status === 'sent' ? 'Enviado' : 'Pendiente'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600">Evento: <span className="font-bold">{tr.event_name}</span></p>
-                      <p className="text-xs text-gray-500">Canal: {tr.channel} · {new Date(tr.created_at).toLocaleDateString('es-MX')}</p>
-                      {tr.notes && <p className="text-xs text-gray-400 mt-1 italic">{tr.notes}</p>}
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Cliente</th>
+                        <th>Evento</th>
+                        <th>Canal</th>
+                        <th>Notas</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ticketRecovery.map(tr => (
+                        <tr key={tr.id}>
+                          <td>
+                            <div className="font-bold">{tr.customer_name || 'Sin nombre'}</div>
+                            <div className="text-xs text-gray-500">{tr.customer_email || '—'}</div>
+                          </td>
+                          <td className="font-bold">{tr.event_name || '—'}</td>
+                          <td>{tr.channel || '—'}</td>
+                          <td className="text-gray-600 italic max-w-[200px] truncate">{tr.notes || '—'}</td>
+                          <td className="whitespace-nowrap">{new Date(tr.created_at).toLocaleDateString('es-MX')}</td>
+                          <td>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold text-white ${
+                              tr.status === 'completed' ? 'bg-green-500' :
+                              tr.status === 'sent' ? 'bg-blue-500' :
+                              'bg-yellow-500'
+                            }`}>
+                              {tr.status === 'completed' ? 'Completado' :
+                               tr.status === 'sent' ? 'Enviado' : 'Pendiente'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-400">
@@ -968,26 +983,37 @@ export default function OpsPage() {
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-[#1E293B]">Escalaciones</h2>
               {escalations.length > 0 ? (
-                <div className="space-y-3">
-                  {escalations.map(esc => (
-                    <div key={esc.id} className={`bg-white rounded-lg p-4 border ${esc.resolved ? 'border-green-200' : 'border-red-200'}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="font-bold text-sm text-gray-900">{esc.reason}</p>
-                          <p className="text-xs text-gray-500">{esc.event_mentioned}</p>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${
-                          esc.resolved ? 'bg-green-500' : 'bg-red-500'
-                        }`}>
-                          {esc.resolved ? 'Resuelto' : 'Pendiente'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600">{esc.description}</p>
-                      {esc.situation && <p className="text-xs text-gray-500 mt-1">Situación: {esc.situation}</p>}
-                      <p className="text-xs text-gray-400 mt-1">{new Date(esc.created_at).toLocaleDateString('es-MX')}</p>
-                      {esc.resolved_at && <p className="text-xs text-green-600">Resuelto: {new Date(esc.resolved_at).toLocaleDateString('es-MX')}</p>}
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Razón</th>
+                        <th>Evento</th>
+                        <th>Descripción</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {escalations.map(esc => (
+                        <tr key={esc.id}>
+                          <td className="font-bold">{esc.reason || '—'}</td>
+                          <td>{esc.event_mentioned || '—'}</td>
+                          <td className="max-w-[250px]">
+                            <p className="truncate">{esc.description || esc.situation || '—'}</p>
+                          </td>
+                          <td className="whitespace-nowrap">{new Date(esc.created_at).toLocaleDateString('es-MX')}</td>
+                          <td>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold text-white ${
+                              esc.resolved ? 'bg-green-500' : 'bg-red-500'
+                            }`}>
+                              {esc.resolved ? 'Resuelto' : 'Pendiente'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-400">
