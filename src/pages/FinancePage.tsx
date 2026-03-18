@@ -1137,96 +1137,64 @@ export default function FinancePage() {
       {/* ====== COMISIONES TAB ====== */}
       {activeTab === 'comisiones' && (
         <div className="space-y-4 animate-fade-in">
-          {/* Commission Summary Card */}
-          <div className="section-card">
-            <div className="section-card-header">
-              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="section-card-title">Resumen de Comisiones</span>
+          {/* Summary row — compact */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-lg border border-gray-200 p-3 text-center">
+              <p className="text-[10px] text-gray-500 uppercase">Ingresos brutos</p>
+              <p className="text-lg font-extrabold">{fmtCurrency(commissionData.totalRevenue)}</p>
             </div>
-            <div className="section-card-body">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                <div className="metric-card">
-                  <p className="metric-card-title">Total Ingresos</p>
-                  <p className="metric-card-value">{fmtCurrency(commissionData.totalRevenue)}</p>
-                  <p className="metric-card-subtitle">Ingresos totales</p>
-                  <div className="metric-card-icon bg-blue-100">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="metric-card">
-                  <p className="metric-card-title">Comisión Dulos (15%)</p>
-                  <p className="metric-card-value text-[#EF4444]">{fmtCurrency(commissionData.dulosCommission)}</p>
-                  <p className="metric-card-subtitle">Para Dulos</p>
-                  <div className="metric-card-icon bg-red-100">
-                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="metric-card">
-                  <p className="metric-card-title">Para Productor (85%)</p>
-                  <p className="metric-card-value text-emerald-600">{fmtCurrency(commissionData.producerShare)}</p>
-                  <p className="metric-card-subtitle">Para productores</p>
-                  <div className="metric-card-icon bg-emerald-100">
-                    <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-3 text-center">
+              <p className="text-[10px] text-gray-500 uppercase">Comisión Dulos (15%)</p>
+              <p className="text-lg font-extrabold text-[#EF4444]">{fmtCurrency(commissionData.dulosCommission)}</p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-3 text-center">
+              <p className="text-[10px] text-gray-500 uppercase">Para Productor (85%)</p>
+              <p className="text-lg font-extrabold text-emerald-600">{fmtCurrency(commissionData.producerShare)}</p>
             </div>
           </div>
 
-          {/* Commission Breakdown Table */}
-          <div className="section-card">
-            <div className="section-card-header">
-              <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <span className="section-card-title">Desglose por Evento</span>
-              <span className="ml-auto text-xs sm:text-sm text-gray-500">{commissionData.events.length} eventos</span>
-            </div>
-            <div className="section-card-body p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-[#1E293B]">
-                    <tr>
-                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Evento</th>
-                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Ingresos</th>
-                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Comisión (15%)</th>
-                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Productor (85%)</th>
-                      <th className="text-left py-3 px-2 sm:px-3 font-bold text-white text-[11px] sm:text-[13px] whitespace-nowrap">Boletos</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {commissionData.events.length > 0 ? commissionData.events.map(event => (
-                      <tr key={event.event_id} className="border-t border-gray-100 hover:bg-gray-50">
-                        <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px]">
-                          <div className="flex items-center gap-2">
-                            {event.image_url && (
-                              <img src={event.image_url} alt={event.event_name} className="w-8 h-8 rounded object-cover" />
-                            )}
-                            <span className="font-bold">{event.event_name}</span>
-                          </div>
-                        </td>
-                        <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-bold text-gray-900">{fmtCurrency(event.revenue)}</td>
-                        <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-bold text-[#EF4444]">{fmtCurrency(event.commission)}</td>
-                        <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] font-bold text-emerald-600">{fmtCurrency(event.producer)}</td>
-                        <td className="py-2 px-2 sm:px-3 text-[11px] sm:text-[13px] text-gray-600">{event.tickets.toLocaleString()}</td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-gray-500 text-sm">No hay datos de comisiones disponibles</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {/* Commission Breakdown Table — .data-table */}
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Evento</th>
+                  <th className="text-right">Boletos</th>
+                  <th className="text-right">Ingresos</th>
+                  <th className="text-right">Comisión (15%)</th>
+                  <th className="text-right">Productor (85%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {commissionData.events.length > 0 ? commissionData.events.map(event => (
+                  <tr key={event.event_id}>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        {event.image_url && (
+                          <img src={event.image_url} alt={event.event_name} className="w-6 h-6 rounded object-cover flex-shrink-0" />
+                        )}
+                        <span className="font-bold">{event.event_name}</span>
+                      </div>
+                    </td>
+                    <td className="text-right">{event.tickets.toLocaleString()}</td>
+                    <td className="text-right font-bold">{fmtCurrency(event.revenue)}</td>
+                    <td className="text-right font-bold text-[#EF4444]">{fmtCurrency(event.commission)}</td>
+                    <td className="text-right font-bold text-emerald-600">{fmtCurrency(event.producer)}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={5} className="text-center py-6 text-gray-400">No hay datos de comisiones</td></tr>
+                )}
+                {commissionData.events.length > 1 && (
+                  <tr className="total-row">
+                    <td className="font-bold">Total</td>
+                    <td className="text-right">{commissionData.events.reduce((s, e) => s + e.tickets, 0).toLocaleString()}</td>
+                    <td className="text-right font-bold">{fmtCurrency(commissionData.totalRevenue)}</td>
+                    <td className="text-right font-bold">{fmtCurrency(commissionData.dulosCommission)}</td>
+                    <td className="text-right font-bold">{fmtCurrency(commissionData.producerShare)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
