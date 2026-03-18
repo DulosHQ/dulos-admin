@@ -58,6 +58,7 @@ interface FuncionProxima {
   revenue: number;
   orders: number;
   ticketsSold: number;
+  eventType: string;
 }
 
 interface ZoneDetail {
@@ -97,6 +98,13 @@ function getOccupancyBadge(pct: number): { text: string; classes: string } {
   if (pct >= 80) return { text: 'CRITICO', classes: 'bg-red-100 text-red-800' };
   if (pct >= 50) return { text: 'ALTO', classes: 'bg-yellow-100 text-yellow-800' };
   return { text: 'NORMAL', classes: 'bg-green-100 text-green-800' };
+}
+
+function getEventTypeLabel(type: string): { text: string; icon: string } {
+  const t = (type || '').toLowerCase();
+  if (t.includes('reserved') || t.includes('numerado') || t.includes('seated')) return { text: 'Numerado', icon: '💺' };
+  if (t.includes('hybrid') || t.includes('mixto')) return { text: 'Mixto', icon: '🔀' };
+  return { text: 'General', icon: '🎫' };
 }
 
 function formatTimeAgo(dateString: string): string {
@@ -313,6 +321,7 @@ export default function SummaryPage() {
             revenue: sale?.total_revenue || 0,
             orders: sale?.total_orders || 0,
             ticketsSold: sale?.total_tickets_sold || sold, // Fallback to zone sold count
+            eventType: event.event_type || 'general',
           };
         }));
 
@@ -559,7 +568,7 @@ export default function SummaryPage() {
                         </span>
                       </div>
                     </div>
-                    <p className="text-[11px] sm:text-[12px] text-gray-500 mt-0.5 truncate font-medium">{f.hora} · {f.sala}</p>
+                    <p className="text-[11px] sm:text-[12px] text-gray-500 mt-0.5 truncate font-medium">{getEventTypeLabel(f.eventType).icon} {f.hora} · {f.sala}</p>
                     <div className="flex items-center justify-between mt-0.5">
                       <span className="text-[11px] sm:text-[12px] font-black text-[#EF4444]">${f.revenue.toLocaleString()}</span>
                       <span className={`text-[10px] sm:text-[11px] font-bold ${f.available < 50 ? 'text-red-500' : 'text-emerald-600'}`}>{f.available} disp.</span>
@@ -592,11 +601,19 @@ export default function SummaryPage() {
 
                 {/* Right: event info + occupancy bar */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-black text-gray-900 text-lg sm:text-xl tracking-tight">{expandedEventData.nombre}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-gray-900 text-lg sm:text-xl tracking-tight">{expandedEventData.nombre}</h3>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600">
+                      {getEventTypeLabel(expandedEventData.eventType).icon} {getEventTypeLabel(expandedEventData.eventType).text}
+                    </span>
+                  </div>
                   <p className="text-sm text-gray-500 mt-0.5 font-medium">{expandedEventData.sala}</p>
                   <p className="text-sm text-gray-500">{expandedEventData.hora}</p>
                   {expandedEventData.revenue > 0 && (
-                    <p className="text-lg font-black text-[#EF4444] mt-1">${expandedEventData.revenue.toLocaleString()} MXN</p>
+                    <div className="flex items-center gap-4 mt-1">
+                      <p className="text-lg font-black text-[#EF4444]">${expandedEventData.revenue.toLocaleString()} MXN</p>
+                      <p className="text-sm text-gray-500">{expandedEventData.orders} órdenes · {expandedEventData.ticketsSold} boletos</p>
+                    </div>
                   )}
 
                   {/* Occupancy bar */}
