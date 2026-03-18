@@ -754,7 +754,7 @@ export default function FinancePage() {
       {/* ====== INGRESOS TAB ====== */}
       {activeTab === 'ingresos' && (
         <div className="space-y-4 animate-fade-in">
-          <FinanceScorecard data={scorecardData} currency="MXN" />
+          <FinanceScorecard data={scorecardData} currency="MXN" eventName={selectedEvent ? events.find(e => e.id === selectedEvent)?.name : undefined} />
 
           {/* Revenue by Event — Dense Table */}
           <div className="section-card">
