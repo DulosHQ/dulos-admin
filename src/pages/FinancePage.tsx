@@ -975,7 +975,7 @@ export default function FinancePage() {
                 <span className="section-card-title">Ventas por Día</span>
               </div>
               <div className="section-card-body">
-                <ResponsiveContainer width="100%" height={180}>
+                <ResponsiveContainer width="100%" height={180} minWidth={50} minHeight={50}>
                   <BarChart data={dayOfWeekData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={50} />
