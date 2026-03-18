@@ -733,32 +733,70 @@ export default function FinancePage() {
         <div className="space-y-4 animate-fade-in">
           <FinanceScorecard data={scorecardData} currency="MXN" />
 
-          {/* Revenue by Event Cards */}
+          {/* Revenue by Event — Dense Table */}
           <div className="section-card">
             <div className="section-card-header">
               <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="section-card-title">Ingresos por Evento</span>
+              <span className="ml-auto text-xs text-gray-500">{eventRevenues.length} eventos</span>
             </div>
-            <div className="section-card-body">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {eventRevenues.length > 0 ? eventRevenues.slice(0, 6).map(event => (
-                  <div key={event.event_id} className="p-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3">
-                      {event.image_url && (
-                        <img src={event.image_url} alt={event.event_name} className="w-12 h-12 rounded-lg object-cover" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-gray-900 truncate">{event.event_name}</p>
-                        <p className="text-base sm:text-lg font-extrabold text-[#EF4444]">{fmtCurrency(event.revenue)}</p>
-                      </div>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="col-span-full text-center text-gray-500 py-4 text-sm">No hay datos de eventos disponibles</div>
-                )}
-              </div>
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Evento</th>
+                    <th className="text-right">Boletos</th>
+                    <th className="text-right">Órdenes</th>
+                    <th className="text-right">Revenue</th>
+                    <th className="text-right">Comisión (15%)</th>
+                    <th className="text-right">% del Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventRevenues.length > 0 ? eventRevenues.map(event => {
+                    const totalRev = eventRevenues.reduce((s, e) => s + e.revenue, 0);
+                    const pct = totalRev > 0 ? Math.round((event.revenue / totalRev) * 100) : 0;
+                    return (
+                      <tr key={event.event_id}>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            {event.image_url && (
+                              <img src={event.image_url} alt={event.event_name} className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                            )}
+                            <span className="font-bold truncate">{event.event_name}</span>
+                          </div>
+                        </td>
+                        <td className="text-right">{event.tickets.toLocaleString()}</td>
+                        <td className="text-right">{event.orders.toLocaleString()}</td>
+                        <td className="text-right font-bold">{fmtCurrency(event.revenue)}</td>
+                        <td className="text-right font-bold text-[#EF4444]">{fmtCurrency(event.revenue * 0.15)}</td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-16 h-2 bg-gray-100 rounded-full overflow-hidden hidden sm:block">
+                              <div className="h-full bg-[#EF4444] rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="font-bold text-gray-900 w-8 text-right">{pct}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr><td colSpan={6} className="text-center py-4">No hay datos de eventos disponibles</td></tr>
+                  )}
+                  {eventRevenues.length > 1 && (
+                    <tr className="total-row">
+                      <td className="font-bold">Total</td>
+                      <td className="text-right">{eventRevenues.reduce((s, e) => s + e.tickets, 0).toLocaleString()}</td>
+                      <td className="text-right">{eventRevenues.reduce((s, e) => s + e.orders, 0).toLocaleString()}</td>
+                      <td className="text-right font-bold">{fmtCurrency(eventRevenues.reduce((s, e) => s + e.revenue, 0))}</td>
+                      <td className="text-right font-bold">{fmtCurrency(eventRevenues.reduce((s, e) => s + e.revenue, 0) * 0.15)}</td>
+                      <td></td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
