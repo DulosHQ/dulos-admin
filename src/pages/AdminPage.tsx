@@ -8,9 +8,19 @@ import {
   fetchTeam,
   fetchAuditLogsByAction,
   fetchDashboardStats,
+  fetchVenues,
+  fetchNotifications,
+  fetchReminders,
+  fetchSurveys,
+  fetchBlogPosts,
   TeamMember,
   AuditLog,
   DashboardStats,
+  Venue,
+  Notification,
+  Reminder,
+  Survey,
+  BlogPost,
 } from '../lib/supabase';
 
 const ACCENT = '#EF4444';
@@ -147,6 +157,13 @@ export default function AdminPage() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
 
+  // Extra data
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [surveys, setSurveys] = useState<Survey[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+
   // Auditoría collapsed state
   const [auditExpanded, setAuditExpanded] = useState(false);
   const [expandedLogIndex, setExpandedLogIndex] = useState<number | null>(null);
@@ -164,11 +181,21 @@ export default function AdminPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [teamData, auditData, statsData] = await Promise.all([
+        const [teamData, auditData, statsData, venuesData, notifData, reminderData, surveyData, blogData] = await Promise.all([
           fetchTeam().catch(() => []),
           fetchAuditLogsByAction(logFilter).catch(() => []),
           fetchDashboardStats().catch(() => null),
+          fetchVenues().catch(() => []),
+          fetchNotifications().catch(() => []),
+          fetchReminders().catch(() => []),
+          fetchSurveys().catch(() => []),
+          fetchBlogPosts().catch(() => []),
         ]);
+        setVenues(venuesData);
+        setNotifications(notifData);
+        setReminders(reminderData);
+        setSurveys(surveyData);
+        setBlogPosts(blogData);
 
         setUsuarios(teamData.map((t) => ({
           id: t.id,
@@ -616,6 +643,147 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+
+      {/* ====== RECINTOS (VENUES) ====== */}
+      <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-extrabold text-sm sm:text-base">Recintos ({venues.length})</h2>
+        </div>
+        {venues.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="data-table text-xs">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Ciudad</th>
+                  <th className="text-right">Capacidad</th>
+                  <th className="hidden sm:table-cell">Dirección</th>
+                  <th className="hidden sm:table-cell">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {venues.map(v => (
+                  <tr key={v.id}>
+                    <td className="font-bold">{v.name}</td>
+                    <td>{v.city || '—'}</td>
+                    <td className="text-right">{v.capacity?.toLocaleString() || '—'}</td>
+                    <td className="hidden sm:table-cell text-gray-500 truncate max-w-[200px]">{v.address || '—'}</td>
+                    <td className="hidden sm:table-cell text-gray-500">{v.state || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 text-center py-4">Sin recintos registrados</p>
+        )}
+      </div>
+
+      {/* ====== COMUNICACIONES (Notifications + Reminders + Surveys) ====== */}
+      <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100">
+        <h2 className="font-extrabold text-sm sm:text-base mb-3">Comunicaciones</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Notifications */}
+          <div className="border border-gray-100 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-xs">Notificaciones</h3>
+              <span className="text-[10px] text-gray-400">{notifications.length}</span>
+            </div>
+            {notifications.length > 0 ? (
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {notifications.slice(0, 10).map(n => (
+                  <div key={n.id} className="flex items-center justify-between text-[10px]">
+                    <span className="truncate max-w-[150px]">{n.subject || n.type}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold text-white ${n.sent_at ? 'bg-green-500' : 'bg-yellow-500'}`}>
+                      {n.sent_at ? 'Enviado' : 'Pendiente'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400">Sin notificaciones</p>
+            )}
+          </div>
+          {/* Reminders */}
+          <div className="border border-gray-100 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-xs">Recordatorios</h3>
+              <span className="text-[10px] text-gray-400">{reminders.length}</span>
+            </div>
+            {reminders.length > 0 ? (
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {reminders.slice(0, 10).map(r => (
+                  <div key={r.id} className="flex items-center justify-between text-[10px]">
+                    <span className="truncate max-w-[120px]">{r.type}</span>
+                    <span className="text-gray-400">{r.scheduled_at ? new Date(r.scheduled_at).toLocaleDateString('es-MX') : '—'}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold text-white ${r.sent_at ? 'bg-green-500' : 'bg-yellow-500'}`}>
+                      {r.sent_at ? 'Enviado' : 'Pendiente'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400">Sin recordatorios</p>
+            )}
+          </div>
+          {/* Surveys */}
+          <div className="border border-gray-100 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-xs">Encuestas</h3>
+              <span className="text-[10px] text-gray-400">{surveys.length}</span>
+            </div>
+            {surveys.length > 0 ? (
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {surveys.slice(0, 10).map(s => (
+                  <div key={s.id} className="flex items-center justify-between text-[10px]">
+                    <span className="truncate max-w-[150px] font-bold">{s.title}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold text-white ${s.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}>
+                      {s.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400">Sin encuestas</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ====== BLOG ====== */}
+      {blogPosts.length > 0 && (
+        <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-extrabold text-sm sm:text-base">Blog ({blogPosts.length})</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="data-table text-xs">
+              <thead>
+                <tr>
+                  <th>Título</th>
+                  <th>Slug</th>
+                  <th>Estado</th>
+                  <th className="hidden sm:table-cell">Publicado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blogPosts.map(bp => (
+                  <tr key={bp.id}>
+                    <td className="font-bold">{bp.title}</td>
+                    <td className="text-gray-500 font-mono text-[10px]">{bp.slug}</td>
+                    <td>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${bp.status === 'published' ? 'bg-green-500' : bp.status === 'draft' ? 'bg-yellow-500' : 'bg-gray-400'}`}>
+                        {bp.status === 'published' ? 'Publicado' : bp.status === 'draft' ? 'Borrador' : bp.status}
+                      </span>
+                    </td>
+                    <td className="hidden sm:table-cell text-gray-400">{bp.published_at ? new Date(bp.published_at).toLocaleDateString('es-MX') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Role Detail Modal (click on a role card) */}
       {showRoleDetail && roleDefinitions[showRoleDetail] && (

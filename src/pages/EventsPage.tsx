@@ -9,6 +9,7 @@ import {
   fetchAllOrders,
   fetchSchedules,
   fetchEventDashboard,
+  fetchScheduleInventory,
   getVenueMap,
   getVenueName,
   getVenueCity,
@@ -16,6 +17,7 @@ import {
   TicketZone,
   Order,
   Schedule,
+  ScheduleInventory,
   Venue,
   EventDashboard,
 } from '../lib/supabase';
@@ -425,6 +427,17 @@ function ActionsMenu({
 function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay; dashboardData: EventDashboard[] }) {
   const eventId = project.events[0]?.id;
   const eventDashZones = dashboardData.filter(d => d.event_id === eventId);
+  const [schedInv, setSchedInv] = useState<ScheduleInventory[]>([]);
+  const [expandedSchedule, setExpandedSchedule] = useState<string | null>(null);
+
+  // Fetch schedule inventory on mount
+  useEffect(() => {
+    if (!eventId) return;
+    const scheduleIds = project.events.flatMap(e => e.schedules.map(s => s.id));
+    Promise.all(scheduleIds.map(sid => fetchScheduleInventory(sid)))
+      .then(results => setSchedInv(results.flat()))
+      .catch(() => {});
+  }, [eventId]);
 
   const totalRevenue = project.events.reduce((s, e) => s + e.revenue, 0);
   const totalSold = project.events.reduce((s, e) => s + e.ticketsSold, 0);
@@ -555,13 +568,43 @@ function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay;
                       </tr>
                     </thead>
                     <tbody>
-                      {allSchedules.map((s) => (
-                        <tr key={s.id}>
-                          <td className="font-medium">{s.fecha}</td>
-                          <td>{s.horaInicio} - {s.horaFin}</td>
-                          <td className="text-right font-bold text-[#EF4444]">{s.vendidos}</td>
-                        </tr>
-                      ))}
+                      {allSchedules.map((s) => {
+                        const inv = schedInv.filter(si => si.schedule_id === s.id);
+                        const isSchedExp = expandedSchedule === s.id;
+                        return (
+                          <React.Fragment key={s.id}>
+                            <tr
+                              className={inv.length > 0 ? 'cursor-pointer' : ''}
+                              onClick={() => inv.length > 0 && setExpandedSchedule(isSchedExp ? null : s.id)}
+                            >
+                              <td className="font-medium">
+                                {inv.length > 0 && <span className="text-gray-400 mr-1 text-[10px]">{isSchedExp ? '▼' : '▶'}</span>}
+                                {s.fecha}
+                              </td>
+                              <td>{s.horaInicio} - {s.horaFin}</td>
+                              <td className="text-right font-bold text-[#EF4444]">{s.vendidos}</td>
+                            </tr>
+                            {isSchedExp && inv.length > 0 && (
+                              <tr>
+                                <td colSpan={3} className="bg-gray-50 p-2">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {inv.map((si, idx) => {
+                                      const zoneName = allZones.find(z => z.id.includes(si.zone_id))?.nombre || `Zona ${idx + 1}`;
+                                      const pct = si.total_capacity > 0 ? (si.sold / si.total_capacity) * 100 : 0;
+                                      return (
+                                        <span key={si.id} className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold text-white ${pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-yellow-500' : 'bg-green-500'}`}>
+                                          {zoneName}: {si.sold}/{si.total_capacity} ({pct.toFixed(0)}%)
+                                          {si.reserved > 0 && <span className="opacity-70">+{si.reserved}res</span>}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -913,3 +913,80 @@ export async function fetchPendingGuests(): Promise<any[]> {
     return [];
   }
 }
+
+// ─── Schedule Inventory ───
+
+export interface ScheduleInventory {
+  id: string;
+  schedule_id: string;
+  zone_id: string;
+  total_capacity: number;
+  sold: number;
+  reserved: number;
+  available: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchScheduleInventory(scheduleId?: string): Promise<ScheduleInventory[]> {
+  try {
+    const filter = scheduleId ? `&schedule_id=eq.${scheduleId}` : '';
+    return await supabaseFetch<ScheduleInventory[]>(`schedule_inventory?order=created_at.desc${filter}`);
+  } catch {
+    return [];
+  }
+}
+
+// ─── Notifications ───
+
+export async function fetchNotifications(): Promise<Notification[]> {
+  try {
+    return await supabaseFetch<Notification[]>('notifications?order=created_at.desc&limit=100');
+  } catch {
+    return [];
+  }
+}
+
+// ─── Reminders ───
+
+export async function fetchReminders(): Promise<Reminder[]> {
+  try {
+    return await supabaseFetch<Reminder[]>('reminders?order=created_at.desc&limit=100');
+  } catch {
+    return [];
+  }
+}
+
+// ─── Surveys ───
+
+export async function fetchSurveys(): Promise<Survey[]> {
+  try {
+    return await supabaseFetch<Survey[]>('surveys?order=created_at.desc&limit=100');
+  } catch {
+    return [];
+  }
+}
+
+// ─── Blog Posts ───
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt: string | null;
+  author_id: string | null;
+  status: string;
+  featured_image: string | null;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchBlogPosts(): Promise<BlogPost[]> {
+  try {
+    return await supabaseFetch<BlogPost[]>('blog_posts?order=created_at.desc');
+  } catch {
+    return [];
+  }
+}
