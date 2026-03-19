@@ -50,6 +50,7 @@ interface Transaction {
   amount: number;
   date: string;
   status: string;
+  ticket_count?: number;
 }
 
 interface ZoneRevenue {
@@ -553,15 +554,17 @@ export default function FinancePage() {
         // Parse total (format: "$299")
         const amount = parseFloat(String(totalStr).replace(/[$,]/g, '')) || 0;
 
+        const ticketCount = parseInt(String(row['Boletos'] || row.Boletos || '1'), 10) || 1;
         transactionsFromPedidos.push({
           id: String(id),
           customer_name: customerName || 'N/A',
           customer_email: customerEmail || 'N/A',
           event_name: String(evento),
-          zone_name: 'General', // Default zone since pedidos doesn't have zone info
+          zone_name: String(row['Zona'] || row.Zona || ''),
           amount,
           date: fecha,
-          status: 'Completado'
+          status: 'Completado',
+          ticket_count: ticketCount,
         });
       });
     }
@@ -1060,29 +1063,7 @@ export default function FinancePage() {
 
           {/* Zone revenue info now lives inside drill-down per event — no more loose blocks/donut */}
 
-          {/* Daily Revenue Area Chart */}
-          {dailyRevenueData.length >= 3 && (
-            <div className="section-card">
-              <div className="section-card-header">
-                <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                </svg>
-                <span className="section-card-title">Ingresos Diarios</span>
-              </div>
-              <div className="section-card-body">
-                <div style={{ width: '100%', height: 200 }}>
-                  <ResponsiveContainer width="99%" height={200}>
-                    <BarChart data={dailyRevenueData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
-                      <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={50} />
-                      <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'Ingresos']} />
-                      <Bar dataKey="amount" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Ingresos Diarios chart moved to Tendencias tab */}
         </div>
       )}
 
@@ -1092,6 +1073,47 @@ export default function FinancePage() {
       {/* ====== TENDENCIAS TAB ====== */}
       {activeTab === 'tendencias' && (
         <div className="space-y-4 animate-fade-in">
+          {/* Ingresos Diarios + Ventas por Día side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {dailyRevenueData.length >= 2 && (
+              <div className="section-card">
+                <div className="section-card-header">
+                  <span className="section-card-title">Ingresos Diarios</span>
+                </div>
+                <div className="section-card-body">
+                  <div style={{ width: '100%', height: 180 }}>
+                    <ResponsiveContainer width="99%" height={180}>
+                      <BarChart data={dailyRevenueData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                        <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={45} />
+                        <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'Ingresos']} />
+                        <Bar dataKey="amount" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+            {dayOfWeekData.some(d => d.sales > 0) && (
+              <div className="section-card">
+                <div className="section-card-header">
+                  <span className="section-card-title">Ventas por Día de la Semana</span>
+                </div>
+                <div className="section-card-body">
+                  <div style={{ width: '100%', height: 180 }}>
+                    <ResponsiveContainer width="99%" height={180}>
+                      <BarChart data={dayOfWeekData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                        <XAxis dataKey="day" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={45} />
+                        <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'Ventas']} />
+                        <Bar dataKey="sales" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           {/* Quick stats row — top */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 text-center">
@@ -1154,7 +1176,8 @@ export default function FinancePage() {
             const geoFilteredOrders = selectedEvent ? rawOrders.filter(o => o.event_id === selectedEvent) : rawOrders;
             const geoMap = new Map<string, { count: number; revenue: number }>();
             geoFilteredOrders.forEach(o => {
-              const key = `${o.city || 'Desconocido'}, ${o.country || '??'}`;
+              if (!o.city && !o.country) return; // skip unknown geo
+              const key = `${o.city || '?'}, ${o.country || '?'}`;
               const existing = geoMap.get(key) || { count: 0, revenue: 0 };
               existing.count++;
               existing.revenue += o.total_price || 0;
@@ -1202,26 +1225,7 @@ export default function FinancePage() {
             );
           })()}
 
-                    {/* Ventas por Día de la Semana — chart below traffic */}
-          <div className="section-card">
-            <div className="section-card-header">
-              <span className="section-card-title">Ventas por Día de la Semana</span>
-            </div>
-            <div className="section-card-body">
-              <div style={{ width: '100%', height: 200 }}>
-              <ResponsiveContainer width="99%" height={200}>
-                <BarChart data={dayOfWeekData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisCurrency} width={50} />
-                  <Tooltip formatter={(v) => [fmtCurrency(Number(v)), 'Ventas']} />
-                  <Bar dataKey="sales" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* geo/device tables handled by IIFE above */}
+          {/* Charts moved to top of Tendencias */}
         </div>
       )}
 
@@ -1250,15 +1254,15 @@ export default function FinancePage() {
             <table className="data-table text-xs">
               <thead>
                 <tr>
-                  <th className="cursor-pointer" onClick={() => toggleSort('id')}>
-                    <span className="inline-flex items-center gap-1">ID{txSort.col === 'id' && <span className={txSort.asc ? '' : 'rotate-180 inline-block'}>▲</span>}</span>
-                  </th>
                   <th className="cursor-pointer" onClick={() => toggleSort('date')}>
                     <span className="inline-flex items-center gap-1">Fecha{txSort.col === 'date' && <span className={txSort.asc ? '' : 'rotate-180 inline-block'}>▲</span>}</span>
                   </th>
                   <th className="cursor-pointer" onClick={() => toggleSort('customer_name')}>Cliente</th>
-                  <th className="cursor-pointer" onClick={() => toggleSort('event_name')}>Evento</th>
-                  <th className="text-right cursor-pointer" onClick={() => toggleSort('amount')}>Monto</th>
+                  <th className="cursor-pointer hidden sm:table-cell" onClick={() => toggleSort('event_name')}>Evento</th>
+                  <th className="text-right cursor-pointer" onClick={() => toggleSort('amount')}>
+                    <span className="inline-flex items-center gap-1">Monto{txSort.col === 'amount' && <span className={txSort.asc ? '' : 'rotate-180 inline-block'}>▲</span>}</span>
+                  </th>
+                  <th className="text-right hidden sm:table-cell">Boletos</th>
                   <th>Estado</th>
                 </tr>
               </thead>
@@ -1273,21 +1277,20 @@ export default function FinancePage() {
                   return (
                   <React.Fragment key={txKey}>
                   <tr onClick={() => setExpandedTxId(isExpTx ? null : txKey)} className={`cursor-pointer ${isExpTx ? 'bg-red-50' : ''}`}>
-                    <td>
+                    <td className="whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         <svg className={`w-3 h-3 text-gray-400 transition-transform flex-shrink-0 ${isExpTx ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        <span className="font-mono text-[#EF4444] font-bold">{/^[0-9a-fA-F]{8}-/.test(tx.id) ? tx.id.substring(0, 8) + '…' : tx.id}</span>
+                        <span className="text-gray-600">{txDate.toLocaleString('es-MX', { day: 'numeric', month: 'short' })}</span>
+                        <span className="text-gray-400 text-[10px]">{txDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </td>
-                    <td className="text-gray-500 whitespace-nowrap">
-                      {txDate.toLocaleString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </td>
                     <td>
-                      <div className="font-bold truncate max-w-[120px]">{tx.customer_name || 'Sin nombre'}</div>
-                      <div className="text-gray-400 text-[10px] truncate max-w-[120px]">{tx.customer_email || ''}</div>
+                      <div className="font-bold">{tx.customer_name || 'Anónimo'}</div>
+                      <div className="text-gray-400 text-[10px]">{tx.customer_email || ''}</div>
                     </td>
-                    <td>{tx.event_name}</td>
-                    <td className="text-right font-bold">{fmtCurrency(tx.amount)}</td>
+                    <td className="hidden sm:table-cell text-gray-600">{tx.event_name}</td>
+                    <td className="text-right font-extrabold">{fmtCurrency(tx.amount)}</td>
+                    <td className="text-right hidden sm:table-cell text-gray-500">{tx.ticket_count || 1}</td>
                     <td>
                       <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${
                         tx.status === 'Completado' ? 'bg-green-500' :
@@ -1302,50 +1305,12 @@ export default function FinancePage() {
                   {isExpTx && (
                     <tr>
                       <td colSpan={6} className="bg-gray-50 p-0">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4">
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">Evento</p>
-                            <p className="text-sm font-bold text-gray-900">{tx.event_name}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">Día</p>
-                            <p className="text-sm font-bold text-gray-900 capitalize">{dayName}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">Fecha</p>
-                            <p className="text-sm font-bold text-gray-900">{fullDate}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">Hora</p>
-                            <p className="text-sm font-bold text-gray-900">{fullTime}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">Zona</p>
-                            <p className="text-sm font-bold text-gray-900">{tx.zone_name}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">Pago</p>
-                            <p className="text-sm font-extrabold text-[#EF4444]">{fmtCurrency(tx.amount)}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">Cliente</p>
-                            <p className="text-sm font-bold text-gray-900">{tx.customer_name || 'Sin nombre'}</p>
-                            <p className="text-[11px] text-gray-500">{tx.customer_email || ''}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">ID Transacción</p>
-                            <p className="text-xs font-mono text-gray-700 break-all">{tx.id}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold">Estado</p>
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${
-                              tx.status === 'Completado' ? 'bg-green-500' :
-                              tx.status === 'Reembolsado' ? 'bg-red-500' :
-                              tx.status === 'Usado' ? 'bg-blue-500' : 'bg-yellow-500'
-                            }`}>
-                              {tx.status}
-                            </span>
-                          </div>
+                        <div className="flex flex-wrap gap-x-6 gap-y-2 px-4 py-3 text-xs">
+                          <div><span className="text-gray-400 text-[10px] uppercase mr-1">Evento:</span><span className="font-bold">{tx.event_name}</span></div>
+                          <div><span className="text-gray-400 text-[10px] uppercase mr-1">Zona:</span><span className="font-bold">{tx.zone_name || '—'}</span></div>
+                          <div><span className="text-gray-400 text-[10px] uppercase mr-1">Día:</span><span className="font-bold capitalize">{dayName}, {fullDate}</span></div>
+                          <div><span className="text-gray-400 text-[10px] uppercase mr-1">Hora:</span><span className="font-bold">{fullTime}</span></div>
+                          <div><span className="text-gray-400 text-[10px] uppercase mr-1">ID:</span><span className="font-mono text-[10px] text-gray-500">{tx.id}</span></div>
                         </div>
                       </td>
                     </tr>
@@ -1393,7 +1358,7 @@ export default function FinancePage() {
                   <p className="text-sm font-extrabold">{fmtCurrency(totGross)}</p>
                 </div>
                 <div className="bg-white rounded-lg border border-gray-200 p-2 text-center">
-                  <p className="text-[9px] text-gray-500 uppercase">ComisiÃ³n</p>
+                  <p className="text-[9px] text-gray-500 uppercase">Comisión</p>
                   <p className="text-sm font-extrabold text-[#EF4444]">{fmtCurrency(totFee)}</p>
                 </div>
                 <div className="bg-white rounded-lg border border-gray-200 p-2 text-center">
@@ -1422,7 +1387,7 @@ export default function FinancePage() {
                         <th className="text-right">Bruto</th>
                         <th className="text-right hidden sm:table-cell">Descuentos</th>
                         <th className="text-right hidden sm:table-cell">Reembolsos</th>
-                        <th className="text-right">ComisiÃ³n</th>
+                        <th className="text-right">Comisión</th>
                         <th className="text-right">Net Payout</th>
                         <th>Estado</th>
                         <th className="hidden sm:table-cell">Ref. Pago</th>
@@ -1470,6 +1435,17 @@ export default function FinancePage() {
                   <p className="text-sm sm:text-lg font-extrabold text-emerald-600">{fmtCurrency(commissionData.producerShare)}</p>
                 </div>
               </div>
+              {/* Visual distribution bar */}
+              <div className="bg-white rounded-lg border border-gray-200 p-3">
+                <div className="flex h-4 rounded-full overflow-hidden">
+                  <div className="bg-[#EF4444] transition-all" style={{ width: '15%' }} />
+                  <div className="bg-emerald-500 transition-all" style={{ width: '85%' }} />
+                </div>
+                <div className="flex justify-between mt-1.5 text-[10px] font-bold">
+                  <span className="text-[#EF4444]">Dulos 15%</span>
+                  <span className="text-emerald-600">Productor 85%</span>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="data-table">
                   <thead>
@@ -1477,8 +1453,8 @@ export default function FinancePage() {
                       <th>Evento</th>
                       <th className="text-right">Boletos</th>
                       <th className="text-right">Ingresos</th>
-                      <th className="text-right">Comisión (15%)</th>
-                      <th className="text-right">Productor (85%)</th>
+                      <th className="text-right text-[#EF4444]">Dulos (15%)</th>
+                      <th className="text-right text-emerald-600">Productor (85%)</th>
                     </tr>
                   </thead>
                   <tbody>
