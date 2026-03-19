@@ -574,7 +574,10 @@ export default function SummaryPage() {
                         </span>
                       </div>
                     </div>
-                    <p className="text-[11px] sm:text-[12px] text-gray-500 mt-0.5 truncate font-medium">{getEventTypeLabel(f.eventType).icon} {f.hora} · {f.sala}</p>
+                    <p className="text-[11px] sm:text-[12px] text-gray-500 mt-0.5 truncate font-medium flex items-center gap-1">
+                      <span className={`badge text-[9px] px-1 py-0 ${getEventTypeLabel(f.eventType).cls}`}>{getEventTypeLabel(f.eventType).text}</span>
+                      <span>{f.hora} · {f.sala}</span>
+                    </p>
                     <div className="flex items-center justify-between mt-0.5">
                       <span className="text-[11px] sm:text-[12px] font-black text-[#EF4444]">${f.revenue.toLocaleString()}</span>
                       <span className={`text-[10px] sm:text-[11px] font-bold ${f.available < 50 ? 'text-red-500' : 'text-emerald-600'}`}>{f.available} disp.</span>
