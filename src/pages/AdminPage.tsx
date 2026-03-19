@@ -277,10 +277,10 @@ export default function AdminPage() {
       <div className="bg-white rounded-xl p-3 sm:p-4 mb-4">
         <h2 className="font-extrabold text-sm sm:text-base mb-3">Matriz de Permisos por Rol</h2>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="data-table">
             <thead>
-              <tr className="border-b">
-                <th className="text-left py-2 font-bold text-gray-600">Categoría / Rol</th>
+              <tr>
+                <th>Categoría / Rol</th>
                 {Object.entries(roleDefinitions).map(([key, role]) => (
                   <th key={key} className="text-center py-2 px-2">
                     <div className="flex flex-col items-center gap-1">

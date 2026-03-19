@@ -34,6 +34,7 @@ interface ProjectDisplay {
   revenue: number;
   commission: number;
   eventCount: number;
+  event_type?: string;
 }
 
 interface EventDisplay {
@@ -100,6 +101,15 @@ const projectSchema = z.object({
 type ProjectFormData = z.infer<typeof projectSchema>;
 
 /* ─── Helpers ─── */
+
+const getEventTypeBadge = (eventType?: string) => {
+  switch (eventType) {
+    case 'ga': return '🎫';
+    case 'reserved': return '💺';
+    case 'hybrid': return '🔀';
+    default: return '🎫';
+  }
+};
 
 const getStatusColor = (status: ProjectDisplay['status']) => {
   switch (status) {
@@ -438,7 +448,7 @@ function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay;
   const dateRange = firstEvent?.date || '';
 
   return (
-    <div className="border-t border-gray-200 bg-[#f8f6f6] overflow-hidden transition-all duration-300 ease-in-out animate-fade-in">
+    <div className="border-t border-gray-200 bg-[#f8f6f6] overflow-hidden transition-all duration-300 ease-in-out animate-fade-in section-card">
       <div className="p-3 sm:p-4">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-5">
           <div className="lg:w-[40%] flex-shrink-0">
@@ -475,17 +485,17 @@ function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay;
             </div>
 
             {allZones.length > 0 && (
-              <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
+              <div className="section-card">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs sm:text-sm">
-                    <thead className="bg-[#1E293B]">
+                  <table className="data-table">
+                    <thead>
                       <tr>
-                        <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-white">Zona</th>
-                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-white">Cap.</th>
-                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-white">Vend.</th>
-                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-white hidden sm:table-cell">Disp.</th>
-                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-white hidden sm:table-cell">Precio</th>
-                        <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-white">%</th>
+                        <th>Zona</th>
+                        <th className="text-right">Cap.</th>
+                        <th className="text-right">Vend.</th>
+                        <th className="text-right hidden sm:table-cell">Disp.</th>
+                        <th className="text-right hidden sm:table-cell">Precio</th>
+                        <th className="text-right">%</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -494,13 +504,13 @@ function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay;
                         const dashZone = eventDashZones[zIdx];
                         const pct = dashZone ? dashZone.percent_sold : (z.capacidad > 0 ? (z.vendidos / z.capacidad) * 100 : 0);
                         return (
-                          <tr key={z.id} className="border-b border-gray-100 last:border-0">
-                            <td className="px-2 sm:px-3 py-2 font-medium text-gray-900">{z.nombre}</td>
-                            <td className="px-2 sm:px-3 py-2 text-right text-gray-600">{z.capacidad}</td>
-                            <td className="px-2 sm:px-3 py-2 text-right text-gray-600">{z.vendidos}</td>
-                            <td className="px-2 sm:px-3 py-2 text-right text-gray-600 hidden sm:table-cell">{avail}</td>
-                            <td className="px-2 sm:px-3 py-2 text-right text-gray-600 hidden sm:table-cell">{formatCurrency(z.precio)}</td>
-                            <td className="px-2 sm:px-3 py-2 text-right">
+                          <tr key={z.id}>
+                            <td className="font-medium">{z.nombre}</td>
+                            <td className="text-right">{z.capacidad}</td>
+                            <td className="text-right">{z.vendidos}</td>
+                            <td className="text-right hidden sm:table-cell">{avail}</td>
+                            <td className="text-right hidden sm:table-cell">{formatCurrency(z.precio)}</td>
+                            <td className="text-right">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium text-white ${getOccupancyColor(pct)}`}>
                                 {pct.toFixed(0)}%
                               </span>
@@ -508,6 +518,22 @@ function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay;
                           </tr>
                         );
                       })}
+                      {allZones.length > 1 && (() => {
+                        const totalCap = allZones.reduce((s, z) => s + z.capacidad, 0);
+                        const totalVend = allZones.reduce((s, z) => s + z.vendidos, 0);
+                        const totalAvail = totalCap - totalVend;
+                        const totalPct = totalCap > 0 ? (totalVend / totalCap) * 100 : 0;
+                        return (
+                          <tr className="total-row">
+                            <td className="font-bold">Total</td>
+                            <td className="text-right">{totalCap}</td>
+                            <td className="text-right">{totalVend}</td>
+                            <td className="text-right hidden sm:table-cell">{totalAvail}</td>
+                            <td className="text-right hidden sm:table-cell">—</td>
+                            <td className="text-right">{totalPct.toFixed(0)}%</td>
+                          </tr>
+                        );
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -515,23 +541,25 @@ function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay;
             )}
 
             {allSchedules.length > 0 && (
-              <div className="rounded-xl bg-white border border-gray-200 p-2 sm:p-3">
-                <h4 className="font-bold text-gray-900 text-sm mb-2">Funciones</h4>
+              <div className="section-card">
+                <div className="section-card-header">
+                  <h4 className="section-card-title">Funciones</h4>
+                </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs sm:text-sm">
+                  <table className="data-table">
                     <thead>
-                      <tr className="text-left text-xs text-gray-500 border-b">
-                        <th className="pb-2 font-medium">Fecha</th>
-                        <th className="pb-2 font-medium">Horario</th>
-                        <th className="pb-2 font-medium text-right">Vendidos</th>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Horario</th>
+                        <th className="text-right">Vendidos</th>
                       </tr>
                     </thead>
                     <tbody>
                       {allSchedules.map((s) => (
-                        <tr key={s.id} className="border-b last:border-0">
-                          <td className="py-1.5 text-gray-900 font-medium">{s.fecha}</td>
-                          <td className="py-1.5 text-gray-600">{s.horaInicio} - {s.horaFin}</td>
-                          <td className="py-1.5 text-right font-bold text-[#EF4444]">{s.vendidos}</td>
+                        <tr key={s.id}>
+                          <td className="font-medium">{s.fecha}</td>
+                          <td>{s.horaInicio} - {s.horaFin}</td>
+                          <td className="text-right font-bold text-[#EF4444]">{s.vendidos}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -628,6 +656,7 @@ export default function EventsPage() {
             isPast,
             revenue, commission: revenue * 0.10,
             eventCount: 1,
+            event_type: event.event_type,
           };
         });
         setProjects(projectsList);
@@ -840,7 +869,7 @@ export default function EventsPage() {
               onClick={() => setFilterTab(opt.key)}
               className={`px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors rounded-lg ${
                 filterTab === opt.key
-                  ? 'bg-[#1E293B] text-white'
+                  ? 'bg-[#1a1a2e] text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -878,7 +907,10 @@ export default function EventsPage() {
                       </div>
                     )}
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{project.name}</h3>
+                      <h3 className="font-semibold text-gray-900 text-xs sm:text-sm truncate">
+                        <span className="mr-1">{getEventTypeBadge(project.event_type)}</span>
+                        {project.name}
+                      </h3>
                       <p className="text-[10px] sm:text-xs text-gray-500 truncate">{project.producer}</p>
                     </div>
                   </div>

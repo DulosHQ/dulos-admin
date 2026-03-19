@@ -575,16 +575,16 @@ export default function OpsPage() {
               </div>
 
               {/* Reservas Table */}
-              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div className="section-card">
                 <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 sticky top-0">
+                  <table className="data-table">
+                    <thead>
                       <tr>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Evento</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Cliente</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Tipo de Boleto</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Cantidad</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Estado</th>
+                        <th>Evento</th>
+                        <th>Cliente</th>
+                        <th>Tipo de Boleto</th>
+                        <th>Cantidad</th>
+                        <th>Estado</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -663,17 +663,17 @@ export default function OpsPage() {
               </div>
 
               {/* Boletos Table */}
-              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div className="section-card">
                 <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 sticky top-0">
+                  <table className="data-table">
+                    <thead>
                       <tr>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Boleto ID</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Evento</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Cliente</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Tipo</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Monto</th>
-                        <th className="text-left py-2 px-3 font-semibold text-gray-600">Estado</th>
+                        <th>Boleto ID</th>
+                        <th>Evento</th>
+                        <th>Cliente</th>
+                        <th>Tipo</th>
+                        <th>Monto</th>
+                        <th>Estado</th>
                       </tr>
                     </thead>
                     <tbody>
