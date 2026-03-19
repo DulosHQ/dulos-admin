@@ -482,9 +482,9 @@ function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay;
         id: `dash-${eventId}-${idx}`,
         nombre: d.zone_name,
         tipo: projectZones.find(pz => pz.nombre === d.zone_name)?.tipo,
-        precio: d.zone_price,
-        capacidad: d.zone_sold + d.zone_available,
-        vendidos: d.zone_sold,
+        precio: d.zone_price || 0,
+        capacidad: (d.zone_sold || 0) + (d.zone_available || 0),
+        vendidos: d.zone_sold || 0,
       }))
     : projectZones;
   const allSchedules = project.events.flatMap((e) => e.schedules);
@@ -554,17 +554,19 @@ function EventDetailPanel({ project, dashboardData }: { project: ProjectDisplay;
                     </thead>
                     <tbody>
                       {allZones.map((z, zIdx) => {
-                        const avail = z.capacidad - z.vendidos;
+                        const cap = z.capacidad || 0;
+                        const vend = z.vendidos || 0;
+                        const avail = cap - vend;
                         const dashZone = eventDashZones[zIdx];
-                        const pct = dashZone ? dashZone.percent_sold : (z.capacidad > 0 ? (z.vendidos / z.capacidad) * 100 : 0);
+                        const pct = dashZone ? (dashZone.percent_sold || 0) : (cap > 0 ? (vend / cap) * 100 : 0);
                         return (
                           <tr key={z.id}>
                             <td className="font-medium">{z.nombre}</td>
                             <td className="hidden sm:table-cell">{getZoneTypeBadge(z.tipo)}</td>
-                            <td className="text-right">{z.capacidad}</td>
-                            <td className="text-right">{z.vendidos}</td>
-                            <td className="text-right hidden sm:table-cell">{avail}</td>
-                            <td className="text-right hidden sm:table-cell">{formatCurrency(z.precio)}</td>
+                            <td className="text-right">{cap.toLocaleString()}</td>
+                            <td className="text-right">{vend.toLocaleString()}</td>
+                            <td className="text-right hidden sm:table-cell">{avail.toLocaleString()}</td>
+                            <td className="text-right hidden sm:table-cell">{formatCurrency(z.precio || 0)}</td>
                             <td className="text-right">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium text-white ${getOccupancyColor(pct)}`}>
                                 {pct.toFixed(0)}%
@@ -823,7 +825,7 @@ export default function EventsPage() {
               date: event.start_date ? formatDate(event.start_date) : 'TBD',
               image_url: event.image_url || '',
               ticketsSold, totalTickets, revenue,
-              zones: eventZones.map((z, idx) => ({ id: `zone-${event.id}-${idx}`, nombre: z.zone_name, tipo: z.zone_type, precio: z.price, capacidad: z.available + z.sold, vendidos: z.sold })),
+              zones: eventZones.map((z, idx) => ({ id: `zone-${event.id}-${idx}`, nombre: z.zone_name, tipo: z.zone_type, precio: z.price || 0, capacidad: (z.available || 0) + (z.sold || 0), vendidos: z.sold || 0 })),
               schedules: eventSchedules.map((s) => ({ id: s.id, fecha: s.date, horaInicio: s.start_time, horaFin: s.end_time, activa: s.status === 'active', vendidos: s.sold_capacity })),
               orders: eventOrders.slice(0, 10).map((o) => ({ id: o.order_number, cliente: o.customer_name, email: o.customer_email, zona: o.zone_name, cantidad: o.quantity, total: o.total_price, estado: mapPaymentStatus(o.payment_status), fecha: o.purchased_at })),
               ticketTypes: Array.from(ticketTypeMap.entries()).map(([tName, data], idx) => ({ id: `tt-${idx}`, name: tName, price: data.price, sold: data.sold, available: data.available })).sort((a, b) => b.price - a.price),
