@@ -559,19 +559,23 @@ export default function OpsPage() {
               {pendingGuests.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                   <h3 className="text-sm font-extrabold text-red-700 mb-1">⚠️ Clientes Pendientes ({pendingGuests.length})</h3>
-                  <p className="text-xs text-red-600 mb-2">Pagaron pero no recibieron boletos</p>
+                  <p className="text-xs text-red-600 mb-2">Pagaron pero no recibieron boletos — requiere acción manual</p>
                   <div className="overflow-x-auto">
                     <table className="data-table text-xs">
-                      <thead><tr><th>Nombre</th><th>Email</th><th>Evento</th><th>Fecha</th></tr></thead>
+                      <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th className="hidden sm:table-cell">Payment ID</th><th>Fecha</th></tr></thead>
                       <tbody>
-                        {pendingGuests.map((pg, i) => (
+                        {pendingGuests.map((pg, i) => {
+                          const guest = pg.guests?.[0] || {};
+                          return (
                           <tr key={pg.id || i}>
-                            <td className="font-bold">{pg.customer_name || pg.name || '—'}</td>
-                            <td className="text-gray-500">{pg.customer_email || pg.email || '—'}</td>
-                            <td>{pg.event_name || '—'}</td>
+                            <td className="font-bold">{guest.name ? `${guest.name} ${guest.lastName || ''}`.trim() : '—'}</td>
+                            <td className="text-gray-500">{guest.email || '—'}</td>
+                            <td className="whitespace-nowrap">{guest.phone || '—'}</td>
+                            <td className="hidden sm:table-cell text-gray-400 font-mono text-[10px]">{pg.payment_intent_id ? pg.payment_intent_id.slice(0, 12) + '…' : '—'}</td>
                             <td className="whitespace-nowrap">{pg.created_at ? new Date(pg.created_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '—'}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -650,7 +654,7 @@ export default function OpsPage() {
                               {customerHistory[0]?.is_vip && (
                                 <span className="inline-block mb-2 text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">⭐ VIP — {customerHistory[0]?.total_purchases} compras · ${(customerHistory[0]?.total_spent || 0).toLocaleString()}</span>
                               )}
-                              <table className="data-table text-xs w-full">
+                              <div className="overflow-x-auto"><table className="data-table text-xs w-full">
                                 <thead>
                                   <tr>
                                     <th>Orden</th>
@@ -680,7 +684,7 @@ export default function OpsPage() {
                                     </tr>
                                   ))}
                                 </tbody>
-                              </table>
+                              </table></div>
                             </div>
                           ) : (
                             <p className="text-xs text-gray-400 text-center py-2">Sin historial de compras</p>

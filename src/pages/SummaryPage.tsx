@@ -211,7 +211,7 @@ export default function SummaryPage() {
         const prevAvg = prevTix > 0 ? prevRev / prevTix : 0;
         const avgPriceChange = pctChange(curAvg, prevAvg);
 
-        const fmtCurrency = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} MXN`;
+        const fmtCurrency = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(n);
 
         setMetrics([
           { label: 'Ingresos Totales', value: fmtCurrency(totalRevenue), change: revenueChange, iconKey: 'revenue' },

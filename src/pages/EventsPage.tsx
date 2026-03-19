@@ -332,7 +332,7 @@ function ProjectModal({
               <div className="rounded-lg border border-gray-200 p-3 bg-gray-50 text-xs space-y-1">
                 <p className="font-bold">{selectedVenue.name}</p>
                 <p className="text-gray-500">{[selectedVenue.city, selectedVenue.state, selectedVenue.country].filter(Boolean).join(', ')}</p>
-                <p className="text-gray-500">Capacidad: {selectedVenue.capacity?.toLocaleString()} · Timezone: {selectedVenue.timezone?.replace('America/', '')}</p>
+                <p className="text-gray-500">Capacidad: {selectedVenue.capacity?.toLocaleString()} · {selectedVenue.timezone === 'America/Mexico_City' ? 'CDMX' : selectedVenue.timezone?.replace('America/', '') || ''}</p>
                 {selectedVenue.has_seatmap && <span className="badge badge-reserved">Asientos Numerados</span>}
                 {selectedVenue.layout_svg_url && (
                   <img src={selectedVenue.layout_svg_url} alt="Mapa" className="w-full max-h-32 object-contain rounded mt-2" />
@@ -1027,7 +1027,7 @@ export default function EventsPage() {
               ticketTypes: Array.from(ticketTypeMap.entries()).map(([tName, data], idx) => ({ id: `tt-${idx}`, name: tName, price: data.price, sold: data.sold, available: data.available })).sort((a, b) => b.price - a.price),
             }],
             isPast,
-            revenue, commission: revenue * 0.10,
+            revenue, commission: revenue * 0.15,
             eventCount: 1,
             event_type: event.event_type,
           };
@@ -1426,7 +1426,7 @@ export default function EventsPage() {
                       </td>
                       <td className="text-center">{geo || '—'}</td>
                       <td className="text-center font-bold">{v.capacity?.toLocaleString() || '—'}</td>
-                      <td className="hidden sm:table-cell text-center text-gray-500 text-[10px]">{v.timezone?.replace('America/', '') || '—'}</td>
+                      <td className="hidden sm:table-cell text-center text-gray-500 text-[10px]">{v.timezone === 'America/Mexico_City' ? 'CDMX' : v.timezone?.replace('America/', '') || '—'}</td>
                       <td className="hidden sm:table-cell text-center">
                         <a href={v.maps_url || `https://www.google.com/maps/search/${encodeURIComponent(v.name + ' ' + (v.city || '') + ' ' + (v.state || ''))}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-blue-500 hover:underline text-[10px]">📍 Maps</a>
                       </td>
@@ -1462,7 +1462,7 @@ export default function EventsPage() {
                             {/* Events in this venue */}
                             <p className="text-[10px] font-bold text-gray-500 uppercase mt-2">Eventos ({venueEvents.length})</p>
                             {venueEvents.length > 0 ? (
-                              <table className="w-full text-xs">
+                              <div className="overflow-x-auto"><table className="w-full text-xs">
                                 <thead><tr className="text-[10px] text-gray-500 border-b border-gray-200">
                                   <th className="text-left py-1 px-2">Evento</th>
                                   <th className="text-center py-1 px-2">Asientos</th>
@@ -1494,7 +1494,7 @@ export default function EventsPage() {
                                     );
                                   })}
                                 </tbody>
-                              </table>
+                              </table></div>
                             ) : (
                               <p className="text-xs text-gray-400 py-2">Sin eventos registrados</p>
                             )}

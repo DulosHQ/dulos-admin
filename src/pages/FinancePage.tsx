@@ -776,7 +776,7 @@ export default function FinancePage() {
           <div className="flex gap-1.5">
             <button
               onClick={exportPDF}
-              className="px-3 py-2 bg-[#EF4444] text-white rounded-lg text-xs font-bold hover:bg-[#c5303c] transition-colors flex items-center gap-1.5"
+              className="px-2 sm:px-3 py-1.5 sm:py-2 bg-[#EF4444] text-white rounded-lg text-[10px] sm:text-xs font-bold hover:bg-[#c5303c] transition-colors flex items-center gap-1 sm:gap-1.5"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -785,7 +785,7 @@ export default function FinancePage() {
             </button>
             <button
               onClick={exportCSV}
-              className="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+              className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 text-gray-600 rounded-lg text-[10px] sm:text-xs font-medium hover:bg-gray-50 transition-colors"
             >
               CSV
             </button>
@@ -949,7 +949,7 @@ export default function FinancePage() {
                               {event.venues && event.venues.length >= 1 && (
                                 <div>
                                   <p className="text-xs font-bold text-gray-500 uppercase mb-2">Por Recinto</p>
-                                  <table className="w-full text-xs">
+                                  <div className="overflow-x-auto"><table className="w-full text-xs">
                                     <thead className="bg-[#1a1a2e] text-white">
                                       <tr>
                                         <th className="px-3 py-2 text-left text-xs font-bold">Recinto</th>
@@ -968,14 +968,14 @@ export default function FinancePage() {
                                         </tr>
                                       ))}
                                     </tbody>
-                                  </table>
+                                  </table></div>
                                 </div>
                               )}
                               {/* Zone revenue breakdown */}
                               {expandedEventZones.length > 0 && (
                                 <div>
                                   <p className="text-xs font-bold text-gray-500 uppercase mb-2">Desglose por Zona</p>
-                                  <table className="w-full text-xs">
+                                  <div className="overflow-x-auto"><table className="w-full text-xs">
                                     <thead className="bg-[#1a1a2e] text-white">
                                       <tr>
                                         <th className="px-3 py-2 text-left font-bold text-xs">Zona</th>
@@ -1006,14 +1006,14 @@ export default function FinancePage() {
                                         );
                                       })}
                                     </tbody>
-                                  </table>
+                                  </table></div>
                                 </div>
                               )}
                               {/* Paolo's Event Sections (if event has reserved/hybrid seating) */}
                               {expandedEventSections.length > 0 && (
                                 <div>
                                   <p className="text-xs font-bold text-gray-500 uppercase mb-2">Secciones de Asientos (Paolo)</p>
-                                  <table className="w-full text-xs">
+                                  <div className="overflow-x-auto"><table className="w-full text-xs">
                                     <thead className="bg-[#1a1a2e] text-white">
                                       <tr>
                                         <th className="px-3 py-2 text-left font-bold text-xs">Sección</th>
@@ -1028,7 +1028,7 @@ export default function FinancePage() {
                                         </tr>
                                       ))}
                                     </tbody>
-                                  </table>
+                                  </table></div>
                                 </div>
                               )}
                               {expandedEventZones.length === 0 && expandedEventSections.length === 0 && (

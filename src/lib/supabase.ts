@@ -941,7 +941,7 @@ export async function createScannerLink(data: { event_id: string; label: string;
 
 export async function fetchPendingGuests(): Promise<any[]> {
   try {
-    return await supabaseFetch<any[]>('tickets?status=eq.pending&order=created_at.desc&limit=50');
+    return await supabaseFetch<any[]>('pending_guests?order=created_at.desc');
   } catch {
     return [];
   }
