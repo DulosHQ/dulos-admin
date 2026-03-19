@@ -38,8 +38,21 @@ export async function inviteUser(formData: UserInviteFormData) {
   }
 
   try {
+    // Check if email already exists in team_members
+    const checkRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/team_members?email=eq.${encodeURIComponent(parsed.data.email)}&select=id`,
+      { headers, cache: 'no-store' }
+    );
+    const existing = await checkRes.json();
+    if (Array.isArray(existing) && existing.length > 0) {
+      return { success: false, error: 'Este correo ya está registrado en el equipo' };
+    }
+
+    const name = parsed.data.name || parsed.data.email.split('@')[0];
+
+    // Step 1: Create in team_members
     const body = {
-      name: parsed.data.name || parsed.data.email.split('@')[0],
+      name,
       email: parsed.data.email,
       role: parsed.data.role,
       is_active: true,
@@ -50,27 +63,100 @@ export async function inviteUser(formData: UserInviteFormData) {
       headers,
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`Error: ${res.status}`);
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Error creating team member: ${res.status} ${errText}`);
+    }
     const data = await res.json();
-    logAction('create', 'user', data[0]?.id || '', JSON.stringify({ email: parsed.data.email, role: parsed.data.role }));
-    return { success: true, data: data[0] };
+
+    // Step 2: Send invite via Supabase Auth Admin
+    // Creates auth user + sends invitation email with magic link
+    let emailSent = false;
+    try {
+      const inviteRes = await fetch(`${SUPABASE_URL}/auth/v1/invite`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: parsed.data.email,
+          data: {
+            role: parsed.data.role,
+            display_name: name,
+          },
+        }),
+      });
+      emailSent = inviteRes.ok;
+      if (!emailSent) {
+        console.warn('Auth invite email failed:', await inviteRes.text());
+      }
+    } catch (e) {
+      console.warn('Auth invite error:', e);
+    }
+
+    logAction('invite', 'user', data[0]?.id || '', JSON.stringify({ email: parsed.data.email, role: parsed.data.role, emailSent }));
+
+    return {
+      success: true,
+      data: data[0],
+      emailSent,
+      message: emailSent
+        ? 'Invitación enviada por correo'
+        : 'Usuario creado — puede acceder con Google',
+    };
   } catch (error) {
+    console.error('inviteUser error:', error);
     return { success: false, error: 'Error al invitar usuario' };
   }
 }
 
-export async function updateUserRole(userId: string, role: string) {
+export async function updateUser(userId: string, patch: { name?: string; role?: string; is_active?: boolean }) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/team_members?id=eq.${userId}`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ role }),
+      body: JSON.stringify(patch),
     });
     if (!res.ok) throw new Error(`Error: ${res.status}`);
     const data = await res.json();
-    logAction('update', 'user', userId, JSON.stringify({ role }));
+    logAction('update', 'user', userId, JSON.stringify(patch));
     return { success: true, data: data[0] };
   } catch (error) {
-    return { success: false, error: 'Error al actualizar rol' };
+    return { success: false, error: 'Error al actualizar usuario' };
   }
+}
+
+export async function deleteUser(userId: string) {
+  try {
+    // Get user info for audit
+    const getRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/team_members?id=eq.${userId}&select=email,name`,
+      { headers, cache: 'no-store' }
+    );
+    const userData = await getRes.json();
+    const email = userData?.[0]?.email;
+
+    // Delete from team_members (revokes access immediately via middleware check)
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/team_members?id=eq.${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+    });
+    if (!res.ok) throw new Error(`Error: ${res.status}`);
+
+    logAction('delete', 'user', userId, JSON.stringify({ email }));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: 'Error al eliminar usuario' };
+  }
+}
+
+export async function updateUserRole(userId: string, role: string) {
+  return updateUser(userId, { role });
 }

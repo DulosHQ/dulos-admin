@@ -11,16 +11,21 @@ function getSupabase() {
   );
 }
 
+// Founders always have access + anyone in team_members with is_active=true
+const FOUNDER_EMAILS = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com", "paolo@dulos.io"];
+
 async function validateTeamMember(email: string): Promise<{ valid: boolean; error?: string }> {
-  // HARDLOCK: Only allow specific emails
-  const allowedEmails = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com"];
-  if (!allowedEmails.includes(email.toLowerCase())) {
-    return { valid: false, error: "Acceso denegado." };
+  const emailLower = email.toLowerCase();
+
+  // Founders always pass
+  if (FOUNDER_EMAILS.includes(emailLower)) {
+    return { valid: true };
   }
 
+  // Check team_members table for dynamic access
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?email=eq.${encodeURIComponent(email)}&select=email,is_active`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?email=eq.${encodeURIComponent(emailLower)}&select=email,is_active`,
       {
         headers: {
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -60,13 +65,15 @@ function LoginForm() {
     }
   }, [searchParams]);
 
-  // Non-blocking session check
+  // Non-blocking session check — if user has valid session + is in team, redirect to dashboard
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      getSupabase().auth.getSession().then(({ data: { session } }) => {
-        const allowed = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com"];
-        if (session?.user?.email && allowed.includes(session.user.email.toLowerCase())) {
-          router.replace("/");
+      getSupabase().auth.getSession().then(async ({ data: { session } }) => {
+        if (session?.user?.email) {
+          const result = await validateTeamMember(session.user.email);
+          if (result.valid) {
+            router.replace("/");
+          }
         }
       }).catch(() => {});
     }, 100);

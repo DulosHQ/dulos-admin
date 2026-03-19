@@ -3,6 +3,25 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Founders always have access regardless of team_members
+const FOUNDER_EMAILS = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com", "paolo@dulos.io"];
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://udjwabtyhjcrpyuffavz.supabase.co';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkandhYnR5aGpjcnB5dWZmYXZ6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzU5MzkzNCwiZXhwIjoyMDg5MTY5OTM0fQ.-1ABMJP5sYUyW1MDg2W7T8ZE3ipe5x_Lvmec9UdZkO8';
+
+async function isAuthorized(email: string): Promise<boolean> {
+  if (FOUNDER_EMAILS.includes(email.toLowerCase())) return true;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/team_members?email=eq.${encodeURIComponent(email.toLowerCase())}&is_active=eq.true&select=id&limit=1`,
+      { headers: { 'apikey': SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}` } }
+    );
+    const members = await res.json();
+    return Array.isArray(members) && members.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -20,8 +39,6 @@ export async function GET(request: NextRequest) {
   }
 
   const cookieStore = await cookies();
-
-  // Track cookies that need to be set on the response
   const cookiesToSetOnResponse: Array<{ name: string; value: string; options?: Record<string, unknown> }> = [];
 
   const supabase = createServerClient(
@@ -33,14 +50,12 @@ export async function GET(request: NextRequest) {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          // Store cookies to set on the redirect response later
           cookiesToSet.forEach(({ name, value, options }) => {
             cookiesToSetOnResponse.push({ name, value, options });
-            // Also try to set via cookieStore for good measure
             try {
               cookieStore.set(name, value, options);
             } catch {
-              // This may fail in some contexts, but we have the backup above
+              // May fail in some contexts
             }
           });
         },
@@ -55,13 +70,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=exchange_failed`);
   }
 
-  const email = data.session?.user?.email?.toLowerCase();
-  const allowedEmails = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com"];
-  if (!email || !allowedEmails.includes(email)) {
-    // Sign out and clear any cookies that were set
+  const email = data.session?.user?.email;
+  if (!email || !(await isAuthorized(email))) {
     await supabase.auth.signOut();
     const response = NextResponse.redirect(`${origin}/login?error=acceso_denegado`);
-    // Clear auth cookies on denial
     cookiesToSetOnResponse.forEach(({ name }) => {
       response.cookies.delete(name);
     });

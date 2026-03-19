@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { inviteUser } from '../app/actions/users.actions';
+import { inviteUser, updateUser as updateUserAction, deleteUser as deleteUserAction } from '../app/actions/users.actions';
 import { updateSetting as updateSettingAction } from '../app/actions/settings.actions';
 import {
   fetchTeam,
@@ -150,6 +150,16 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<Setting[]>(defaultSettings);
   const [logFilter, setLogFilter] = useState<string>('');
   const [showInvite, setShowInvite] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [showEditUser, setShowEditUser] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingUser, setEditingUser] = useState<TeamDisplay | null>(null);
+  const [deletingUser, setDeletingUser] = useState<TeamDisplay | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editActive, setEditActive] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [showRoleManage, setShowRoleManage] = useState(false);
   const [showRoleDetail, setShowRoleDetail] = useState<string | null>(null);
   const [editingSettingKey, setEditingSettingKey] = useState<string | null>(null);
@@ -272,6 +282,55 @@ export default function AdminPage() {
   };
 
   const showTeamOnboarding = usuarios.length < 3;
+
+  const openEditUser = (u: TeamDisplay) => {
+    setEditingUser(u);
+    setEditName(u.nombre);
+    setEditRole(u.rol);
+    setEditActive(u.activo);
+    setShowEditUser(true);
+  };
+
+  const handleEditUser = async () => {
+    if (!editingUser) return;
+    setActionLoading(true);
+    const patch: { name?: string; role?: string; is_active?: boolean } = {};
+    if (editName !== editingUser.nombre) patch.name = editName;
+    if (editRole !== editingUser.rol) patch.role = editRole;
+    if (editActive !== editingUser.activo) patch.is_active = editActive;
+    if (Object.keys(patch).length === 0) { setShowEditUser(false); setActionLoading(false); return; }
+    const result = await updateUserAction(editingUser.id, patch);
+    setActionLoading(false);
+    if (result.success) {
+      toast.success('Usuario actualizado');
+      setShowEditUser(false);
+      setUsuarios(prev => prev.map(u => u.id === editingUser.id
+        ? { ...u, nombre: editName, rol: editRole, activo: editActive }
+        : u
+      ));
+    } else {
+      toast.error(result.error || 'Error al actualizar');
+    }
+  };
+
+  const openDeleteConfirm = (u: TeamDisplay) => {
+    setDeletingUser(u);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+    setActionLoading(true);
+    const result = await deleteUserAction(deletingUser.id);
+    setActionLoading(false);
+    if (result.success) {
+      toast.success('Usuario eliminado');
+      setShowDeleteConfirm(false);
+      setUsuarios(prev => prev.filter(u => u.id !== deletingUser.id));
+    } else {
+      toast.error(result.error || 'Error al eliminar');
+    }
+  };
 
   return (
     <div className="bg-[#f8f6f6] p-3 sm:p-4 max-w-7xl mx-auto">
@@ -400,7 +459,7 @@ export default function AdminPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Nombre</th><th>Rol</th><th className="hidden sm:table-cell">Último Acceso</th><th>Estado</th>
+                  <th>Nombre</th><th>Rol</th><th className="hidden sm:table-cell">Último Acceso</th><th>Estado</th><th className="text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -429,10 +488,32 @@ export default function AdminPage() {
                           {u.activo ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
+                      <td className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => openEditUser(u)}
+                            className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Editar"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => openDeleteConfirm(u)}
+                            className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Eliminar"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
-                  <tr><td colSpan={4} className="text-center py-4">No hay miembros</td></tr>
+                  <tr><td colSpan={5} className="text-center py-4">No hay miembros</td></tr>
                 )}
               </tbody>
             </table>
@@ -843,10 +924,12 @@ export default function AdminPage() {
 
       {/* Invite Modal */}
       {showInvite && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowInvite(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { if (!inviteLoading) setShowInvite(false); }}>
           <div className="bg-white rounded-xl p-4 sm:p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-extrabold text-sm sm:text-base mb-3">Invitar usuario</h3>
-            <input id="invite-email" type="email" placeholder="Email" className="w-full border rounded-lg px-3 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]" />
+            <h3 className="font-extrabold text-sm sm:text-base mb-1">Invitar usuario</h3>
+            <p className="text-[10px] text-gray-400 mb-3">Se enviará un correo de invitación con acceso al dashboard</p>
+            <input id="invite-name" type="text" placeholder="Nombre (opcional)" value={inviteName} onChange={e => setInviteName(e.target.value)} className="w-full border rounded-lg px-3 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]" />
+            <input id="invite-email" type="email" placeholder="Email *" className="w-full border rounded-lg px-3 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]" />
             <select id="invite-role" className="w-full border rounded-lg px-3 py-1.5 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]">
               <option value="super_admin">Administrador</option>
               <option value="operator">Operador</option>
@@ -854,20 +937,131 @@ export default function AdminPage() {
               <option value="taquillero">Taquillero</option>
             </select>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowInvite(false)} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
-              <button onClick={async () => {
+              <button onClick={() => setShowInvite(false)} disabled={inviteLoading} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50">Cancelar</button>
+              <button disabled={inviteLoading} onClick={async () => {
                 const emailInput = document.querySelector<HTMLInputElement>('#invite-email');
                 const roleSelect = document.querySelector<HTMLSelectElement>('#invite-role');
-                if (emailInput && roleSelect) {
-                  const result = await inviteUser({ email: emailInput.value, role: roleSelect.value as 'super_admin' | 'operator' | 'analyst' | 'taquillero' });
+                if (emailInput && roleSelect && emailInput.value) {
+                  setInviteLoading(true);
+                  const result = await inviteUser({
+                    name: inviteName || undefined,
+                    email: emailInput.value,
+                    role: roleSelect.value as 'super_admin' | 'operator' | 'analyst' | 'taquillero',
+                  });
+                  setInviteLoading(false);
                   if (result.success) {
-                    toast.success('Invitación enviada');
+                    toast.success((result as { message?: string }).message || 'Invitación enviada');
                     setShowInvite(false);
+                    setInviteName('');
+                    // Refresh team list
+                    const newUser: TeamDisplay = {
+                      id: (result as { data?: { id?: string } }).data?.id || crypto.randomUUID(),
+                      nombre: inviteName || emailInput.value.split('@')[0],
+                      email: emailInput.value,
+                      rol: roleSelect.value,
+                      activo: true,
+                      ultimoAcceso: Date.now(),
+                    };
+                    setUsuarios(prev => [...prev, newUser]);
                   } else {
                     toast.error(result.error || 'Error al enviar invitación');
                   }
+                } else {
+                  toast.error('Ingresa un email válido');
                 }
-              }} className="px-3 py-1.5 rounded-lg text-white text-sm font-bold" style={{ backgroundColor: ACCENT }}>Enviar</button>
+              }} className="px-3 py-1.5 rounded-lg text-white text-sm font-bold disabled:opacity-50" style={{ backgroundColor: ACCENT }}>
+                {inviteLoading ? 'Enviando...' : 'Enviar Invitación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditUser && editingUser && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { if (!actionLoading) setShowEditUser(false); }}>
+          <div className="bg-white rounded-xl p-4 sm:p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <h3 className="font-extrabold text-sm sm:text-base mb-3">Editar usuario</h3>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Nombre</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-1.5 text-sm mt-0.5 focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Email</label>
+                <input
+                  type="email"
+                  value={editingUser.email}
+                  disabled
+                  className="w-full border rounded-lg px-3 py-1.5 text-sm mt-0.5 bg-gray-50 text-gray-400 cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Rol</label>
+                <select
+                  value={editRole}
+                  onChange={e => setEditRole(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-1.5 text-sm mt-0.5 focus:outline-none focus:ring-1 focus:ring-[#EF4444] focus:border-[#EF4444]"
+                >
+                  <option value="super_admin">Administrador</option>
+                  <option value="operator">Operador</option>
+                  <option value="analyst">Analista</option>
+                  <option value="taquillero">Taquillero</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Estado</label>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-bold ${editActive ? 'text-green-600' : 'text-gray-400'}`}>
+                    {editActive ? 'Activo' : 'Inactivo'}
+                  </span>
+                  <button
+                    onClick={() => setEditActive(!editActive)}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${editActive ? 'bg-green-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${editActive ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowEditUser(false)} disabled={actionLoading} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50">Cancelar</button>
+              <button onClick={handleEditUser} disabled={actionLoading} className="px-3 py-1.5 rounded-lg text-white text-sm font-bold disabled:opacity-50" style={{ backgroundColor: ACCENT }}>
+                {actionLoading ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && deletingUser && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { if (!actionLoading) setShowDeleteConfirm(false); }}>
+          <div className="bg-white rounded-xl p-4 sm:p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="font-extrabold text-sm sm:text-base">¿Eliminar usuario?</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">
+              Estás por eliminar a <strong>{deletingUser.nombre}</strong>
+            </p>
+            <p className="text-xs text-gray-400 mb-4">
+              {deletingUser.email} — Esta acción revoca su acceso inmediatamente.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowDeleteConfirm(false)} disabled={actionLoading} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50">Cancelar</button>
+              <button onClick={handleDeleteUser} disabled={actionLoading} className="px-3 py-1.5 rounded-lg text-white text-sm font-bold bg-red-600 hover:bg-red-700 disabled:opacity-50">
+                {actionLoading ? 'Eliminando...' : 'Eliminar'}
+              </button>
             </div>
           </div>
         </div>
