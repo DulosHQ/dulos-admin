@@ -1056,7 +1056,10 @@ export default function EventsPage() {
                         <span className="mr-1">{getEventTypeBadge(project.event_type)}</span>
                         {project.name}
                       </h3>
-                      <p className="text-[10px] sm:text-xs text-gray-500 truncate">{project.producer}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                        {project.producer}
+                        {project.events[0]?.venue && <span className="text-gray-400"> · {project.events[0].venue}</span>}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">

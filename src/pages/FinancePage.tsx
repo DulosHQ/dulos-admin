@@ -915,11 +915,15 @@ export default function FinancePage() {
                               <img src={event.image_url} alt={event.event_name} className="w-8 h-8 rounded object-cover flex-shrink-0" />
                             )}
                             <div>
-                              <span className="font-bold truncate">{event.event_name}</span>
-                              {event.venues && event.venues.length > 1 && (
-                                <span className="ml-1 text-[10px] text-gray-400">{event.venues.length} recintos</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold truncate">{event.event_name}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{eventType}</span>
+                              </div>
+                              {event.venues && event.venues.length > 0 && (
+                                <p className="text-[10px] text-gray-400 truncate">
+                                  {event.venues.length === 1 ? event.venues[0].venue_name : `${event.venues.length} recintos`}
+                                </p>
                               )}
-                              <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{eventType}</span>
                             </div>
                             <svg className={`w-4 h-4 text-gray-400 transition-transform ml-auto flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </div>
