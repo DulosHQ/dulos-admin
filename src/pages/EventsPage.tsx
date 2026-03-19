@@ -788,6 +788,7 @@ export default function EventsPage() {
   const [venueMap, setVenueMap] = useState<Map<string, Venue>>(new Map());
   const [allVenues, setAllVenues] = useState<Venue[]>([]);
   const [venueFilter, setVenueFilter] = useState({ city: '', type: '' });
+  const [expandedVenueId, setExpandedVenueId] = useState<string | null>(null);
   const [eventDashboardData, setEventDashboardData] = useState<EventDashboard[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1216,39 +1217,93 @@ export default function EventsPage() {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Ubicación</th>
-                  <th className="text-right">Capacidad</th>
-                  <th>Tipo</th>
-                  <th className="hidden sm:table-cell">Timezone</th>
-                  <th className="hidden sm:table-cell">Mapa</th>
+                  <th className="text-center">Ubicación</th>
+                  <th className="text-center">Capacidad</th>
+                  <th className="text-center">Tipo</th>
+                  <th className="hidden sm:table-cell text-center">Timezone</th>
+                  <th className="hidden sm:table-cell text-center">Mapa</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(v => {
-                  const eventsInVenue = events.filter(e => e.venue_id === v.id).length;
+                  const venueEvents = events.filter(e => e.venue_id === v.id);
                   const geo = [v.city, v.state, v.country].filter(Boolean).join(', ');
+                  const isExp = expandedVenueId === v.id;
+                  // Get zone types for this venue's events
+                  const venueZoneTypes = [...new Set(
+                    projects.flatMap(p => p.events.filter(e => e.venueId === v.id).flatMap(e => e.zones.map(z => z.tipo))).filter(Boolean)
+                  )];
                   return (
-                    <tr key={v.id}>
+                    <React.Fragment key={v.id}>
+                    <tr className={`cursor-pointer ${isExp ? 'bg-red-50' : ''}`} onClick={() => setExpandedVenueId(isExp ? null : v.id)}>
                       <td>
-                        <div className="font-bold">{v.name}</div>
-                        {eventsInVenue > 0 && <div className="text-[10px] text-gray-400">{eventsInVenue} evento{eventsInVenue > 1 ? 's' : ''}</div>}
+                        <div className="flex items-center gap-1">
+                          <svg className={`w-3 h-3 text-gray-400 transition-transform flex-shrink-0 ${isExp ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                          <div>
+                            <div className="font-bold">{v.name}</div>
+                            {venueEvents.length > 0 && <div className="text-[10px] text-gray-400">{venueEvents.length} evento{venueEvents.length > 1 ? 's' : ''}</div>}
+                          </div>
+                        </div>
                       </td>
-                      <td>{geo || '—'}</td>
-                      <td className="text-right font-bold">{v.capacity?.toLocaleString() || '—'}</td>
-                      <td>
+                      <td className="text-center">{geo || '—'}</td>
+                      <td className="text-center font-bold">{v.capacity?.toLocaleString() || '—'}</td>
+                      <td className="text-center">
                         {v.has_seatmap ? (
                           <span className="badge badge-reserved">Numerado</span>
                         ) : (
                           <span className="badge badge-ga">GA</span>
                         )}
                       </td>
-                      <td className="hidden sm:table-cell text-gray-500 text-[10px]">{v.timezone || '—'}</td>
-                      <td className="hidden sm:table-cell">
+                      <td className="hidden sm:table-cell text-center text-gray-500 text-[10px]">{v.timezone?.replace('America/', '') || '—'}</td>
+                      <td className="hidden sm:table-cell text-center">
                         {v.maps_url ? (
-                          <a href={v.maps_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-[10px]">📍 Maps</a>
-                        ) : '—'}
+                          <a href={v.maps_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-blue-500 hover:underline text-[10px]">📍 Maps</a>
+                        ) : <span className="text-gray-300 text-[10px]">Sin mapa</span>}
                       </td>
                     </tr>
+                    {/* Drill-down: events in this venue */}
+                    {isExp && (
+                      <tr>
+                        <td colSpan={6} className="p-0 bg-[#f8f6f6]">
+                          <div className="p-3 space-y-2">
+                            <p className="text-xs font-bold text-gray-600">Eventos en {v.name}:</p>
+                            {venueEvents.length > 0 ? (
+                              <table className="w-full text-xs">
+                                <thead><tr className="text-[10px] text-gray-500 border-b border-gray-200">
+                                  <th className="text-left py-1 px-2">Evento</th>
+                                  <th className="text-center py-1 px-2">Tipo</th>
+                                  <th className="text-center py-1 px-2">Zonas</th>
+                                  <th className="text-center py-1 px-2">Fecha</th>
+                                  <th className="text-center py-1 px-2">Status</th>
+                                </tr></thead>
+                                <tbody>
+                                  {venueEvents.map(ev => {
+                                    const proj = projects.find(p => p.events.some(e => e.id === ev.id));
+                                    const evZones = proj?.events.find(e => e.id === ev.id)?.zones || [];
+                                    const zTypes = [...new Set(evZones.map(z => z.tipo).filter(Boolean))];
+                                    return (
+                                      <tr key={ev.id} className="border-b border-gray-100">
+                                        <td className="py-1.5 px-2 font-bold">{ev.name}</td>
+                                        <td className="py-1.5 px-2 text-center">{getEventTypeBadge(ev.event_type)}</td>
+                                        <td className="py-1.5 px-2 text-center">{zTypes.length > 0 ? zTypes.map((t, i) => <span key={i} className="mr-0.5">{getZoneTypeBadge(t)}</span>) : <span className="badge badge-ga">GA</span>}</td>
+                                        <td className="py-1.5 px-2 text-center text-gray-500">{ev.start_date ? new Date(ev.start_date).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '—'}</td>
+                                        <td className="py-1.5 px-2 text-center"><span className={`badge ${ev.status === 'active' ? 'badge-success' : ev.status === 'draft' ? 'badge-warning' : 'badge-info'}`}>{ev.status === 'active' ? 'Activo' : ev.status || '—'}</span></td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <p className="text-xs text-gray-400">Sin eventos en este recinto</p>
+                            )}
+                            {v.maps_url && (
+                              <a href={v.maps_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline mt-1">📍 Ver en Google Maps</a>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })}
                 {filtered.length === 0 && <tr><td colSpan={6} className="text-center py-4 text-gray-400">Sin recintos con ese filtro</td></tr>}
