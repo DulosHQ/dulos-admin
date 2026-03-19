@@ -787,6 +787,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<DulosEvent[]>([]);
   const [venueMap, setVenueMap] = useState<Map<string, Venue>>(new Map());
   const [allVenues, setAllVenues] = useState<Venue[]>([]);
+  const [venueFilter, setVenueFilter] = useState({ city: '', type: '' });
   const [eventDashboardData, setEventDashboardData] = useState<EventDashboard[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1185,11 +1186,30 @@ export default function EventsPage() {
         />
       </div>
 
-      {/* ====== RECINTOS — enriched (Block 4) ====== */}
-      {allVenues.length > 0 && (
+      {/* ====== RECINTOS — enriched with filters ====== */}
+      {allVenues.length > 0 && (() => {
+        const cities = [...new Set(allVenues.map(v => v.city).filter(Boolean))].sort();
+        const filtered = allVenues.filter(v => {
+          if (venueFilter.city && v.city !== venueFilter.city) return false;
+          if (venueFilter.type === 'seatmap' && !v.has_seatmap) return false;
+          if (venueFilter.type === 'ga' && v.has_seatmap) return false;
+          return true;
+        });
+        return (
         <div className="section-card mt-4">
           <div className="section-card-header">
-            <span className="section-card-title">🏟️ Recintos ({allVenues.length})</span>
+            <span className="section-card-title">🏟️ Recintos ({filtered.length}{filtered.length !== allVenues.length ? `/${allVenues.length}` : ''})</span>
+            <div className="flex gap-2 ml-auto">
+              <select value={venueFilter.city} onChange={e => setVenueFilter(f => ({...f, city: e.target.value}))} className="px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#EF4444]">
+                <option value="">Todas las ciudades</option>
+                {cities.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={venueFilter.type} onChange={e => setVenueFilter(f => ({...f, type: e.target.value}))} className="px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#EF4444]">
+                <option value="">Todos los tipos</option>
+                <option value="ga">GA</option>
+                <option value="seatmap">Numerado</option>
+              </select>
+            </div>
           </div>
           <div className="section-card-body overflow-x-auto">
             <table className="data-table text-xs">
@@ -1204,7 +1224,7 @@ export default function EventsPage() {
                 </tr>
               </thead>
               <tbody>
-                {allVenues.map(v => {
+                {filtered.map(v => {
                   const eventsInVenue = events.filter(e => e.venue_id === v.id).length;
                   const geo = [v.city, v.state, v.country].filter(Boolean).join(', ');
                   return (
@@ -1213,10 +1233,7 @@ export default function EventsPage() {
                         <div className="font-bold">{v.name}</div>
                         {eventsInVenue > 0 && <div className="text-[10px] text-gray-400">{eventsInVenue} evento{eventsInVenue > 1 ? 's' : ''}</div>}
                       </td>
-                      <td>
-                        <div>{geo || '—'}</div>
-                        {v.postal_code && <div className="text-[10px] text-gray-400">CP {v.postal_code}</div>}
-                      </td>
+                      <td>{geo || '—'}</td>
                       <td className="text-right font-bold">{v.capacity?.toLocaleString() || '—'}</td>
                       <td>
                         {v.has_seatmap ? (
@@ -1234,11 +1251,13 @@ export default function EventsPage() {
                     </tr>
                   );
                 })}
+                {filtered.length === 0 && <tr><td colSpan={6} className="text-center py-4 text-gray-400">Sin recintos con ese filtro</td></tr>}
               </tbody>
             </table>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

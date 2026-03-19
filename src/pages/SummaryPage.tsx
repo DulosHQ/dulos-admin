@@ -106,11 +106,11 @@ function getOccupancyBadge(pct: number): { text: string; classes: string } {
   return { text: 'NORMAL', classes: 'bg-green-100 text-green-800' };
 }
 
-function getEventTypeLabel(type: string): { text: string; icon: string } {
+function getEventTypeLabel(type: string): { text: string; icon: string; cls: string } {
   const t = (type || '').toLowerCase();
-  if (t.includes('reserved') || t.includes('numerado') || t.includes('seated')) return { text: 'Numerado', icon: '💺' };
-  if (t.includes('hybrid') || t.includes('mixto')) return { text: 'Mixto', icon: '🔀' };
-  return { text: 'General', icon: '🎫' };
+  if (t === 'recurring') return { text: 'Recurrente', icon: '🔄', cls: 'badge-recurring' };
+  if (t === 'multiday') return { text: 'Multiday', icon: '📅', cls: 'badge-multiday' };
+  return { text: 'Único', icon: '🎫', cls: 'badge-single' };
 }
 
 function formatTimeAgo(dateString: string): string {
@@ -609,8 +609,8 @@ export default function SummaryPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="font-black text-gray-900 text-lg sm:text-xl tracking-tight">{expandedEventData.nombre}</h3>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600">
-                      {getEventTypeLabel(expandedEventData.eventType).icon} {getEventTypeLabel(expandedEventData.eventType).text}
+                    <span className={`badge ${getEventTypeLabel(expandedEventData.eventType).cls}`}>
+                      {getEventTypeLabel(expandedEventData.eventType).text}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-0.5 font-medium">{expandedEventData.sala}</p>

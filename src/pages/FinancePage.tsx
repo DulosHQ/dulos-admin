@@ -917,7 +917,7 @@ export default function FinancePage() {
                             <div>
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="font-bold truncate">{event.event_name}</span>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{eventType}</span>
+                                <span className={`badge ${eventType === 'recurring' ? 'badge-recurring' : eventType === 'multiday' ? 'badge-multiday' : 'badge-single'}`}>{eventType === 'recurring' ? 'Recurrente' : eventType === 'multiday' ? 'Multiday' : 'Único'}</span>
                               </div>
                               {event.venues && event.venues.length > 0 && (
                                 <p className="text-[10px] text-gray-400 truncate">

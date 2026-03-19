@@ -16,6 +16,7 @@ import {
   fetchScannerLinks,
   createScannerLink,
   fetchBlogPosts,
+  fetchPendingGuests,
   Checkin,
   Coupon,
   Ticket,
@@ -139,6 +140,9 @@ export default function OpsPage() {
   // Blog posts (relocated from Config)
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
 
+  // Pending guests (paid but no tickets)
+  const [pendingGuests, setPendingGuests] = useState<any[]>([])
+
   useEffect(() => {
     Promise.all([
       fetchCheckins().catch(() => []),
@@ -150,7 +154,8 @@ export default function OpsPage() {
       fetchAllEscalations().catch(() => []),
       fetchScannerLinks().catch(() => []),
       fetchBlogPosts().catch(() => []),
-    ]).then(([ci, co, tk, nl, ev, tr, esc, sl, bp]) => {
+      fetchPendingGuests().catch(() => []),
+    ]).then(([ci, co, tk, nl, ev, tr, esc, sl, bp, pg]) => {
       setCheckins(ci.filter((c: Checkin) => c.customer_name && c.customer_name !== 'DUPLICADO'))
       setCupones(co)
       setTickets(tk)
@@ -159,6 +164,7 @@ export default function OpsPage() {
       setTicketRecovery(tr)
       setEscalations(esc)
       setBlogPosts(bp || [])
+      setPendingGuests(pg || [])
       setLoading(false)
     })
   }, [])
@@ -549,6 +555,28 @@ export default function OpsPage() {
           {/* Clientes Tab */}
           {activeTab === 'clientes' && (
             <div className="space-y-4">
+              {/* Pending Guests Alert */}
+              {pendingGuests.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <h3 className="text-sm font-extrabold text-red-700 mb-1">⚠️ Clientes Pendientes ({pendingGuests.length})</h3>
+                  <p className="text-xs text-red-600 mb-2">Pagaron pero no recibieron boletos</p>
+                  <div className="overflow-x-auto">
+                    <table className="data-table text-xs">
+                      <thead><tr><th>Nombre</th><th>Email</th><th>Evento</th><th>Fecha</th></tr></thead>
+                      <tbody>
+                        {pendingGuests.map((pg, i) => (
+                          <tr key={pg.id || i}>
+                            <td className="font-bold">{pg.customer_name || pg.name || '—'}</td>
+                            <td className="text-gray-500">{pg.customer_email || pg.email || '—'}</td>
+                            <td>{pg.event_name || '—'}</td>
+                            <td className="whitespace-nowrap">{pg.created_at ? new Date(pg.created_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               <h2 className="text-lg font-bold text-[#1E293B]">Búsqueda de Clientes</h2>
               <div className="flex gap-2 mb-3">
                 <input
