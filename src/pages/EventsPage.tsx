@@ -1127,7 +1127,7 @@ export default function EventsPage() {
         />
       </div>
 
-      {/* ====== RECINTOS (relocated from Config → Block 3) ====== */}
+      {/* ====== RECINTOS — enriched (Block 4) ====== */}
       {allVenues.length > 0 && (
         <div className="section-card mt-4">
           <div className="section-card-header">
@@ -1138,24 +1138,44 @@ export default function EventsPage() {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Ciudad</th>
+                  <th>Ubicación</th>
                   <th className="text-right">Capacidad</th>
-                  <th className="hidden sm:table-cell">Seatmap</th>
-                  <th className="hidden sm:table-cell">Dirección</th>
+                  <th>Tipo</th>
+                  <th className="hidden sm:table-cell">Timezone</th>
+                  <th className="hidden sm:table-cell">Mapa</th>
                 </tr>
               </thead>
               <tbody>
-                {allVenues.map(v => (
-                  <tr key={v.id}>
-                    <td className="font-bold">{v.name}</td>
-                    <td>{v.city || '—'}</td>
-                    <td className="text-right">{v.capacity?.toLocaleString() || '—'}</td>
-                    <td className="hidden sm:table-cell">
-                      {(v as any).has_seatmap ? <span className="badge badge-reserved">Numerado</span> : <span className="badge badge-ga">GA</span>}
-                    </td>
-                    <td className="hidden sm:table-cell text-gray-500 truncate max-w-[200px]">{v.address || '—'}</td>
-                  </tr>
-                ))}
+                {allVenues.map(v => {
+                  const eventsInVenue = events.filter(e => e.venue_id === v.id).length;
+                  const geo = [v.city, v.state, v.country].filter(Boolean).join(', ');
+                  return (
+                    <tr key={v.id}>
+                      <td>
+                        <div className="font-bold">{v.name}</div>
+                        {eventsInVenue > 0 && <div className="text-[10px] text-gray-400">{eventsInVenue} evento{eventsInVenue > 1 ? 's' : ''}</div>}
+                      </td>
+                      <td>
+                        <div>{geo || '—'}</div>
+                        {v.postal_code && <div className="text-[10px] text-gray-400">CP {v.postal_code}</div>}
+                      </td>
+                      <td className="text-right font-bold">{v.capacity?.toLocaleString() || '—'}</td>
+                      <td>
+                        {v.has_seatmap ? (
+                          <span className="badge badge-reserved">Numerado</span>
+                        ) : (
+                          <span className="badge badge-ga">GA</span>
+                        )}
+                      </td>
+                      <td className="hidden sm:table-cell text-gray-500 text-[10px]">{v.timezone || '—'}</td>
+                      <td className="hidden sm:table-cell">
+                        {v.maps_url ? (
+                          <a href={v.maps_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-[10px]">📍 Maps</a>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -44,12 +44,16 @@ export interface Venue {
   city: string;
   state: string;
   country: string;
+  postal_code?: string;
   latitude: number;
   longitude: number;
   maps_url: string;
   timezone: string;
   capacity: number;
   image_url?: string;
+  has_seatmap?: boolean;
+  seatmap_key?: string;
+  layout_svg_url?: string;
   created_at: string;
 }
 
