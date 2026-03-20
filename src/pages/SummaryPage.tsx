@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area } from 'recharts';
 import { toast } from 'sonner';
 import HeroMetrics from '../components/HeroMetrics';
 import type { MetricData } from '../components/HeroMetrics';
@@ -706,9 +706,8 @@ export default function SummaryPage() {
             <div className="section-card-header !py-2 !px-3">
               <span className="font-bold text-gray-900 text-sm">Actividad Reciente</span>
               {salesTrendData.length > 0 && (
-                <div className="ml-auto" style={{ width: 80, height: 24, minHeight: 24 }}>
-                  <ResponsiveContainer width="100%" height="100%" minWidth={50} minHeight={20}>
-                    <AreaChart data={salesTrendData} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
+                <div className="ml-auto" style={{ width: 80, height: 24 }}>
+                    <AreaChart width={80} height={24} data={salesTrendData} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
                       <defs>
                         <linearGradient id="miniSalesGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#EF4444" stopOpacity={0.3} />
@@ -717,7 +716,6 @@ export default function SummaryPage() {
                       </defs>
                       <Area type="monotone" dataKey="amount" stroke="#EF4444" strokeWidth={1.5} fill="url(#miniSalesGrad)" dot={false} />
                     </AreaChart>
-                  </ResponsiveContainer>
                 </div>
               )}
             </div>

@@ -1085,7 +1085,7 @@ export default function FinancePage() {
                   <span className="section-card-title">Ingresos Diarios</span>
                 </div>
                 <div className="section-card-body">
-                  <div style={{ width: '100%', height: 180 }}>
+                  <div style={{ width: '100%', minWidth: 100, height: 180, minHeight: 180 }}>
                     <ResponsiveContainer width="99%" height={180}>
                       <BarChart data={dailyRevenueData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
                         <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -1104,7 +1104,7 @@ export default function FinancePage() {
                   <span className="section-card-title">Ventas por Día de la Semana</span>
                 </div>
                 <div className="section-card-body">
-                  <div style={{ width: '100%', height: 180 }}>
+                  <div style={{ width: '100%', minWidth: 100, height: 180, minHeight: 180 }}>
                     <ResponsiveContainer width="99%" height={180}>
                       <BarChart data={dayOfWeekData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
                         <XAxis dataKey="day" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
