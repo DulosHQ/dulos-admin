@@ -12,7 +12,7 @@ function getSupabase() {
 }
 
 // Founders always have access + anyone in team_members with is_active=true
-const FOUNDER_EMAILS = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com", "paolo@dulos.io"];
+const FOUNDER_EMAILS = ["angel.lopez@vulkn-ai.com", "tamaravulkn@gmail.com", "paolo@dulos.io", "juan.sotelo@dulos.io"];
 
 async function validateTeamMember(email: string): Promise<{ valid: boolean; error?: string }> {
   const emailLower = email.toLowerCase();
