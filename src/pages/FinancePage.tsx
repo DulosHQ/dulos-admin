@@ -909,7 +909,7 @@ export default function FinancePage() {
                     const totalCap = eventSchedules.reduce((s, sc) => s + sc.capacity, 0);
                     const totalSold = eventSchedules.reduce((s, sc) => s + sc.sold, 0);
                     const occPct = totalCap > 0 ? Math.round((totalSold / totalCap) * 100) : 0;
-                    const occBadge = occPct === 0 ? { cls: 'bg-gray-400', label: 'SIN VENTAS' } : occPct > 80 ? { cls: 'bg-red-500', label: 'CRÍTICO' } : occPct >= 50 ? { cls: 'bg-yellow-500', label: 'ALTO' } : { cls: 'bg-green-500', label: 'NORMAL' };
+                    const occBadge = occPct === 0 ? { cls: 'bg-gray-300 text-gray-600', label: 'SIN VENTAS' } : occPct > 80 ? { cls: 'bg-red-500', label: 'CRÍTICO' } : occPct >= 50 ? { cls: 'bg-yellow-500', label: 'ALTO' } : { cls: 'bg-green-500', label: 'NORMAL' };
                     return (
                       <React.Fragment key={event.event_id}>
                       <tr onClick={() => handleRevenueEventClick(event.event_id, event.event_ids)} className={`cursor-pointer ${isExpanded ? 'bg-red-50' : ''}`}>
@@ -940,7 +940,7 @@ export default function FinancePage() {
                         <td className="text-right text-gray-500">{totalCap > 0 ? totalCap.toLocaleString() : '—'}</td>
                         <td className="text-right">
                           {totalCap > 0 ? (
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${occBadge.cls}`}>{occPct}%</span>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${occPct === 0 ? '' : 'text-white'} ${occBadge.cls}`}>{occPct}%</span>
                           ) : '—'}
                         </td>
                         <td className="text-right font-bold text-gray-900">{pct}%</td>
@@ -1003,7 +1003,7 @@ export default function FinancePage() {
                                             <td className="text-right">{z.available}</td>
                                             <td className="text-right font-bold text-[#EF4444]">{fmtCurrency(z.sold * z.price)}</td>
                                             <td className="text-right">
-                                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${occPct === 0 ? 'bg-gray-400' : occPct >= 80 ? 'bg-red-500' : occPct >= 50 ? 'bg-yellow-500' : 'bg-green-500'}`}>
+                                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${occPct === 0 ? 'bg-gray-300 text-gray-600' : 'text-white'} ${occPct === 0 ? 'bg-gray-300' : occPct >= 80 ? 'bg-red-500' : occPct >= 50 ? 'bg-yellow-500' : 'bg-green-500'}`}>
                                                 {occPct}%
                                               </span>
                                             </td>
