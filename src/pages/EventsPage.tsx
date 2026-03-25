@@ -1210,7 +1210,7 @@ export default function EventsPage() {
     try {
       const result = await createEvent({
         name: data.nombre,
-        producer: data.productor,
+        slug: data.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
         image_url: data.imagen_url,
         description: data.descripcion,
         status: data.estado === 'Publicado' ? 'active' : 'draft',
@@ -1240,7 +1240,6 @@ export default function EventsPage() {
       if (eventId) {
         const result = await updateEvent(eventId, {
           name: data.nombre,
-          producer: data.productor,
           image_url: data.imagen_url,
           description: data.descripcion,
           status: data.estado === 'Publicado' ? 'active' : 'draft',

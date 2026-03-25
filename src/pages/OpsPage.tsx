@@ -449,7 +449,18 @@ export default function OpsPage() {
           {/* Escaneo Tab = Check-ins + Scanner Links */}
           {activeTab === 'escaneo' && (
             <div className="space-y-3">
-              {/* Scanner — compact inline */}
+              {/* Scanner v2 banner */}
+              <div className="bg-gradient-to-r from-red-50 to-white border border-red-200 rounded-lg p-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-extrabold text-[#1E293B]">Scanner v2 (PWA)</p>
+                  <p className="text-[10px] text-gray-500">PIN por evento · Anti-fraude · Auto-detect función</p>
+                </div>
+                <a href="https://dulos.io/scanner" target="_blank" rel="noopener noreferrer"
+                   className="px-4 py-2 bg-[#EF4444] text-white rounded-lg text-xs font-bold hover:bg-red-600 transition-colors whitespace-nowrap">
+                  Abrir Scanner ↗
+                </a>
+              </div>
+              {/* Legacy scanner — manual ticket lookup */}
               <div className="flex flex-col sm:flex-row gap-2 items-stretch">
                 <div className="flex gap-2 flex-1">
                   <input
