@@ -890,13 +890,13 @@ export default function OpsPage() {
                   <h3 className="text-sm font-extrabold text-[#1E293B] mb-2">Recuperación de Boletos ({ticketRecovery.length})</h3>
                   <div className="overflow-x-auto">
                     <table className="data-table text-xs">
-                      <thead><tr><th>Cliente</th><th>Evento</th><th className="hidden sm:table-cell">Canal</th><th>Fecha</th><th>Estado</th></tr></thead>
+                      <thead><tr><th>Contacto</th><th>Evento</th><th className="hidden sm:table-cell">Notas</th><th>Fecha</th><th>Estado</th></tr></thead>
                       <tbody>
                         {ticketRecovery.map(tr => (
                           <tr key={tr.id}>
-                            <td><span className="font-bold">{tr.customer_name || 'Sin nombre'}</span> <span className="text-gray-400 hidden sm:inline">{tr.customer_email || ''}</span></td>
-                            <td className="font-bold">{tr.event_name || '—'}</td>
-                            <td className="hidden sm:table-cell">{tr.channel || '—'}</td>
+                            <td><span className="font-bold">{tr.email || tr.phone || '—'}</span>{tr.phone && tr.email && <span className="text-gray-400 hidden sm:inline"> · {tr.phone}</span>}</td>
+                            <td className="font-bold">{tr.event_mentioned || '—'}</td>
+                            <td className="hidden sm:table-cell text-gray-500 max-w-[200px] truncate">{tr.notes || '—'}</td>
                             <td className="whitespace-nowrap">{new Date(tr.created_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'})}</td>
                             <td><span className={`badge ${tr.status === 'completed' ? 'badge-success' : tr.status === 'sent' ? 'badge-info' : 'badge-warning'}`}>{tr.status === 'completed' ? 'OK' : tr.status === 'sent' ? 'Enviado' : 'Pendiente'}</span></td>
                           </tr>

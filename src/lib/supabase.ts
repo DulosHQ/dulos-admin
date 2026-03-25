@@ -316,15 +316,16 @@ export interface GtmEvent {
 }
 
 export interface TicketRecovery {
-  id: string;
-  ticket_id: string;
-  customer_name: string;
-  customer_email: string;
-  event_name: string;
+  id: string | number;
+  phone: string | null;
+  email: string | null;
+  event_mentioned: string | null;
   status: string;
-  channel: string;
-  notes: string;
+  verified: boolean;
+  notes: string | null;
   created_at: string;
+  customer_id: string | null;
+  order_id: string | null;
 }
 
 export interface VenueSeat {
