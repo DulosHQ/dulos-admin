@@ -257,27 +257,33 @@ export default function FinancePage() {
       }
     });
 
-    // Compute actual tickets sold from orders (fallback when v_sales_summary.total_tickets_sold is stale)
+    // Compute actual tickets sold AND revenue from orders (fallback when v_sales_summary is stale)
     const orderTicketsByEvent = new Map<string, number>();
+    const orderRevenueByEvent = new Map<string, number>();
     rawOrders.filter(o => o.payment_status === 'completed').forEach(o => {
       orderTicketsByEvent.set(o.event_id, (orderTicketsByEvent.get(o.event_id) || 0) + (o.quantity || 1));
+      orderRevenueByEvent.set(o.event_id, (orderRevenueByEvent.get(o.event_id) || 0) + (o.total_price || 0));
     });
 
     const eventRevenues = Array.from(eventAggMap.values()).map(e => {
       // Use orders-based ticket count when v_sales_summary returns 0 but orders exist
       const orderBasedTickets = e.event_ids.reduce((sum, eid) => sum + (orderTicketsByEvent.get(eid) || 0), 0);
       const realTickets = e.tickets > 0 ? e.tickets : orderBasedTickets;
-      // Also fix per-venue tickets
+      // Use orders-based revenue when it's higher than summary (summary may be stale)
+      const orderBasedRevenue = e.event_ids.reduce((sum, eid) => sum + (orderRevenueByEvent.get(eid) || 0), 0);
+      const realRevenue = Math.max(e.revenue, orderBasedRevenue);
+      // Also fix per-venue tickets and revenue
       const enrichedVenues = e.venues.map(v => ({
         ...v,
         tickets: v.tickets > 0 ? v.tickets : (orderTicketsByEvent.get(v.event_id) || 0),
+        revenue: Math.max(v.revenue, orderRevenueByEvent.get(v.event_id) || 0),
       }));
       return {
         event_id: e.event_ids[0],
         event_ids: e.event_ids,
         event_name: e.event_name,
         venues: enrichedVenues,
-        revenue: e.revenue,
+        revenue: realRevenue,
         orders: e.orders,
         tickets: realTickets,
         refunded: e.refunded || 0,
@@ -287,8 +293,10 @@ export default function FinancePage() {
 
     // --- Scorecard using Sales Summary (REAL DATA) ---
 
-    // Use real revenue from v_sales_summary
-    const totalRevenue = filteredSalesSummary.reduce((sum, s) => sum + s.total_revenue, 0);
+    // Use real revenue — prefer orders when higher than v_sales_summary (which may be stale)
+    const summaryRevenue = filteredSalesSummary.reduce((sum, s) => sum + s.total_revenue, 0);
+    const ordersRevenue = filteredSalesSummary.reduce((sum, s) => sum + (orderRevenueByEvent.get(s.event_id) || 0), 0);
+    const totalRevenue = Math.max(summaryRevenue, ordersRevenue);
     const totalOrders = filteredSalesSummary.reduce((sum, s) => sum + s.total_orders, 0);
     const summaryTickets = filteredSalesSummary.reduce((sum, s) => sum + s.total_tickets_sold, 0);
     const orderBasedTotalTickets = filteredSalesSummary.reduce((sum, s) => sum + (orderTicketsByEvent.get(s.event_id) || 0), 0);
@@ -319,10 +327,27 @@ export default function FinancePage() {
       occupancyPercentPrevious: occupancyPercent || 1,
     };
 
-    // --- Zone revenues ---
+    // --- Zone revenues (prefer orders-based revenue when available) ---
     const zoneRevenueMap = new Map<string, number>();
+    // First compute from orders (accurate)
+    const orderRevenueByZone = new Map<string, number>();
+    rawOrders.filter(o => o.payment_status === 'completed').forEach(o => {
+      const eventMatch = !selectedEvent || o.event_id === selectedEvent;
+      if (eventMatch) {
+        orderRevenueByZone.set(o.zone_name, (orderRevenueByZone.get(o.zone_name) || 0) + (o.total_price || 0));
+      }
+    });
+    // Merge: use order revenue if available, fallback to zone calc
     filteredZones.forEach(z => {
-      zoneRevenueMap.set(z.zone_name, (zoneRevenueMap.get(z.zone_name) || 0) + z.sold * z.price);
+      const orderRev = orderRevenueByZone.get(z.zone_name) || 0;
+      const zoneRev = orderRev > 0 ? orderRev : z.sold * z.price;
+      zoneRevenueMap.set(z.zone_name, (zoneRevenueMap.get(z.zone_name) || 0) + zoneRev);
+    });
+    // Add zones from orders that don't exist in ticket_zones
+    orderRevenueByZone.forEach((rev, zoneName) => {
+      if (!zoneRevenueMap.has(zoneName) && rev > 0) {
+        zoneRevenueMap.set(zoneName, rev);
+      }
     });
     const zoneRevenues: ZoneRevenue[] = Array.from(zoneRevenueMap.entries())
       .map(([zone, revenue]) => ({ zone, revenue }))
@@ -636,37 +661,45 @@ export default function FinancePage() {
     const ids = new Set(eventIds || [eventId]);
     const zones = rawZones.filter(z => ids.has(z.event_id));
     
-    // Compute actual sold from orders (ticket_zones.sold may be stale)
-    const orderSoldMap = new Map<string, number>();
+    // Compute actual sold AND revenue from orders (ticket_zones.sold/price may be stale)
+    const orderZoneStats = new Map<string, { sold: number; revenue: number; unitPrice: number }>();
     rawOrders
       .filter(o => ids.has(o.event_id) && o.payment_status === 'completed')
       .forEach(o => {
         const key = `${o.event_id}:${o.zone_name}`;
-        orderSoldMap.set(key, (orderSoldMap.get(key) || 0) + (o.quantity || 1));
+        const existing = orderZoneStats.get(key) || { sold: 0, revenue: 0, unitPrice: 0 };
+        existing.sold += (o.quantity || 1);
+        existing.revenue += (o.total_price || 0);
+        existing.unitPrice = o.unit_price || existing.unitPrice;
+        orderZoneStats.set(key, existing);
       });
     
-    // Merge: use MAX(ticket_zones.sold, orders.sold) to handle both sources
+    // Merge: use orders data when available (more accurate than ticket_zones)
     const enrichedZones = zones.map(z => {
-      const orderSold = orderSoldMap.get(`${z.event_id}:${z.zone_name}`) || 0;
-      const realSold = Math.max(z.sold, orderSold);
+      const key = `${z.event_id}:${z.zone_name}`;
+      const orderStats = orderZoneStats.get(key);
+      const realSold = orderStats ? Math.max(z.sold, orderStats.sold) : z.sold;
+      const realPrice = orderStats ? orderStats.unitPrice : z.price;
+      const realRevenue = orderStats ? orderStats.revenue : z.sold * z.price;
       const realAvailable = Math.max(0, (z.total_capacity || (z.sold + z.available)) - realSold);
-      return { ...z, sold: realSold, available: realAvailable };
+      return { ...z, sold: realSold, available: realAvailable, price: realPrice, _orderRevenue: realRevenue };
     });
     
     // Also add zones that exist in orders but NOT in ticket_zones (mismatched names)
     const zoneKeys = new Set(zones.map(z => `${z.event_id}:${z.zone_name}`));
     const missingZones: typeof zones = [];
-    orderSoldMap.forEach((sold, key) => {
+    orderZoneStats.forEach((stats, key) => {
       if (!zoneKeys.has(key)) {
         const [evId, zoneName] = [key.split(':')[0], key.split(':').slice(1).join(':')];
         missingZones.push({
           event_id: evId,
           zone_name: zoneName,
           zone_type: 'ga',
-          price: rawOrders.find(o => o.event_id === evId && o.zone_name === zoneName)?.unit_price || 0,
+          price: stats.unitPrice,
           original_price: 0,
           available: 0,
-          sold: sold,
+          sold: stats.sold,
+          _orderRevenue: stats.revenue,
         } as any);
       }
     });
@@ -1063,7 +1096,7 @@ export default function FinancePage() {
                                             <td className="text-right">{fmtCurrency(z.price)}</td>
                                             <td className="text-right">{z.sold}</td>
                                             <td className="text-right">{z.available}</td>
-                                            <td className="text-right font-bold text-[#EF4444]">{fmtCurrency(z.sold * z.price)}</td>
+                                            <td className="text-right font-bold text-[#EF4444]">{fmtCurrency((z as any)._orderRevenue || z.sold * z.price)}</td>
                                             <td className="text-right">
                                               <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${occPct === 0 ? 'bg-gray-300 text-gray-600' : 'text-white'} ${occPct === 0 ? 'bg-gray-300' : occPct >= 80 ? 'bg-red-500' : occPct >= 50 ? 'bg-yellow-500' : 'bg-green-500'}`}>
                                                 {occPct}%
