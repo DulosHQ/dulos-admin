@@ -2,9 +2,14 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
+// For server-side admin fetches, prefer service role for BOTH headers.
+// Using anon in `apikey` with service-role bearer can cause inconsistent behavior
+// depending on gateway/project config.
+const REST_KEY = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
+
 const headers = {
-  'apikey': SUPABASE_ANON_KEY,
-  'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+  'apikey': REST_KEY,
+  'Authorization': `Bearer ${REST_KEY}`,
   'Content-Type': 'application/json',
 };
 
@@ -381,7 +386,8 @@ export interface EventCommission {
 async function supabaseFetch<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, { headers });
   if (!response.ok) {
-    throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
+    const body = await response.text().catch(() => '');
+    throw new Error(`Supabase error: ${response.status} ${response.statusText} | ${body}`);
   }
   return response.json();
 }
