@@ -237,17 +237,16 @@ export default function OpsPage() {
         video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
+      // Video/canvas are always in DOM (hidden class), so refs are available
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      if (video) {
+        video.srcObject = stream
+        await video.play()
       }
-      setCameraActive(true)
+      setCameraActive(true) // unhide the video container
       setScanResult(null)
       toast.success('Cámara activa — apunta al código QR')
-
-      // Start QR scanning loop
-      const canvas = canvasRef.current
-      const video = videoRef.current
       if (!canvas || !video) return
       const ctx = canvas.getContext('2d', { willReadFrequently: true })
       if (!ctx) return
@@ -260,7 +259,6 @@ export default function OpsPage() {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' })
         if (code?.data) {
-          // Found QR code — validate the ticket
           const qrData = code.data.trim()
           const ticket = tickets.find(t => t.ticket_number === qrData || t.ticket_token === qrData || t.id === qrData)
           if (ticket) {
@@ -269,21 +267,17 @@ export default function OpsPage() {
             } else if (ticket.status === 'cancelled') {
               setScanResult({ ok: false, msg: `Boleto cancelado — ${ticket.ticket_number}` })
             } else {
-              setScanResult({ ok: true, msg: `✓ ${ticket.customer_name || 'Cliente'} — ${ticket.ticket_number} — ${ticket.event_date || 'Evento'}` })
-              // Auto check-in: mark as used
+              setScanResult({ ok: true, msg: `✓ ${ticket.customer_name || 'Cliente'} — ${ticket.ticket_number}` })
               toast.success(`Check-in: ${ticket.customer_name || ticket.ticket_number}`)
             }
           } else {
             setScanResult({ ok: false, msg: `Boleto no encontrado: ${qrData.substring(0, 30)}` })
           }
-          // Pause scanning for 3s after a result
           if (scanIntervalRef.current) clearInterval(scanIntervalRef.current)
           scanIntervalRef.current = null
-          setTimeout(() => {
-            if (streamRef.current) startCamera()
-          }, 3000)
+          setTimeout(() => { if (streamRef.current) startCamera() }, 3000)
         }
-      }, 250) // 4 frames per second
+      }, 250)
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
         setCameraError('Permiso de cámara denegado. Haz clic en el candado 🔒 → Cámara → Permitir → Recarga')
@@ -467,16 +461,14 @@ export default function OpsPage() {
                 </div>
               </div>
 
-              {cameraActive && (
-                <div className="relative max-w-xs">
+              <div className={`relative max-w-xs ${cameraActive ? '' : 'hidden'}`}>
                   <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-[4/3] rounded-lg bg-black object-cover" />
                   <canvas ref={canvasRef} className="hidden" />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-48 h-48 border-2 border-white/70 rounded-xl" />
                   </div>
                   <p className="text-center text-[10px] text-gray-400 mt-1">Apunta al código QR del boleto</p>
-                </div>
-              )}
+              </div>
 
               {cameraError && !cameraActive && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
@@ -641,8 +633,9 @@ export default function OpsPage() {
                     <p className="text-xs text-red-600 mb-1">Pagaron pero no recibieron boletos — requiere acción manual</p>
                     <p className="text-[10px] text-red-500 mb-2">💡 Busca el Payment ID en Stripe para encontrar datos del comprador y reenviar boletos</p>
                     <div className="overflow-x-auto">
-                      <table className="data-table text-xs">
-                        <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th className="hidden sm:table-cell">Payment ID</th><th>Fecha</th></tr></thead>
+                      {/* Desktop table */}
+                      <table className="data-table text-xs hidden sm:table">
+                        <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Payment ID</th><th>Fecha</th></tr></thead>
                         <tbody>
                           {withData.map((pg, i) => {
                             const guest = pg.guests?.[0] || {};
@@ -658,6 +651,23 @@ export default function OpsPage() {
                           })}
                         </tbody>
                       </table>
+                      {/* Mobile cards */}
+                      <div className="sm:hidden space-y-2">
+                        {withData.map((pg, i) => {
+                          const guest = pg.guests?.[0] || {};
+                          return (
+                          <div key={pg.id || i} className="bg-white border border-gray-200 rounded-lg p-2.5">
+                            <div className="flex justify-between items-start">
+                              <p className="font-bold text-xs">{guest.name ? `${guest.name} ${guest.lastName || ''}`.trim() : '—'}</p>
+                              <span className="text-[10px] text-gray-400">{pg.created_at ? new Date(pg.created_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : ''}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-0.5">{guest.email || '—'}</p>
+                            <p className="text-[10px] text-gray-400">{guest.phone || '—'}</p>
+                            {pg.payment_intent_id && <a href={`https://dashboard.stripe.com/payments/${pg.payment_intent_id}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-blue-500 hover:underline mt-1 inline-block">{pg.payment_intent_id.slice(0, 20)}…</a>}
+                          </div>
+                          );
+                        })}
+                      </div>
                     </div>
                     </>
                   ) : (
