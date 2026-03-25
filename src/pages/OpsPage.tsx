@@ -426,7 +426,7 @@ export default function OpsPage() {
       {/* Sub-tabs Navigation */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-200">
-          {['escaneo', 'clientes', 'gestion', ...(blogPosts.length > 0 ? ['blog'] : [])].map((tab) => (
+          {['escaneo', 'clientes', 'gestion'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -438,7 +438,6 @@ export default function OpsPage() {
             >
               {tab === 'escaneo' ? `Escaneo (${checkins.length})` :
                tab === 'clientes' ? `Clientes (${customerTotal.toLocaleString()})` :
-               tab === 'blog' ? `Blog / SEO (${blogPosts.length})` :
                `Gestión (${cupones.length + escalations.length})`}
             </button>
           ))}
@@ -991,30 +990,7 @@ export default function OpsPage() {
             </div>
           )}
 
-          {/* Blog / SEO Tab */}
-          {activeTab === 'blog' && blogPosts.length > 0 && (
-            <div className="space-y-3">
-              <table className="data-table text-xs">
-                <thead><tr><th>Título</th><th>Estado</th><th className="hidden sm:table-cell">Publicado</th><th>Link</th></tr></thead>
-                <tbody>
-                  {blogPosts.map(bp => (
-                    <tr key={bp.id}>
-                      <td className="font-bold max-w-[250px]">{bp.title}</td>
-                      <td><span className={`badge ${(bp as any).published ? 'badge-success' : 'badge-warning'}`}>{(bp as any).published ? 'Publicado' : 'Borrador'}</span></td>
-                      <td className="hidden sm:table-cell text-gray-400">{bp.published_at ? new Date(bp.published_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '—'}</td>
-                      <td>
-                        {bp.slug ? (
-                          <a href={`https://dulos.io/blog/${bp.slug}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-[10px] font-medium">🔗 Ver</a>
-                        ) : (
-                          <span className="text-gray-300 text-[10px]">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* Blog section removed — blog_posts table exists but is empty/unused */}
 
           {/* Dead tabs removed — fused into Escaneo, Clientes, Gestión, Blog */}
         </div>
