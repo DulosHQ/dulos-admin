@@ -269,6 +269,7 @@ function ProjectModal({
   initialData,
   submitting,
   venues,
+  existingProducers = [],
 }: {
   open: boolean;
   onClose: () => void;
@@ -276,6 +277,7 @@ function ProjectModal({
   initialData?: ProjectFormData | null;
   submitting?: boolean;
   venues?: Venue[];
+  existingProducers?: string[];
 }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<ProjectFormData>({
@@ -434,7 +436,12 @@ function ProjectModal({
             )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Productor</label>
-              <input type="text" value={form.productor} onChange={e => setForm({ ...form, productor: e.target.value })} className={errors.productor ? errCls : inputCls} />
+              <input type="text" list="producer-options" value={form.productor} onChange={e => setForm({ ...form, productor: e.target.value })} className={errors.productor ? errCls : inputCls} placeholder="Selecciona o escribe un productor..." />
+              <datalist id="producer-options">
+                {existingProducers.map(p => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Imagen URL</label>
@@ -1462,6 +1469,7 @@ export default function EventsPage() {
           initialData={editingProject}
           submitting={submitting}
           venues={allVenues}
+          existingProducers={[...new Set(projects.map(p => p.producer).filter(Boolean))].sort()}
         />
 
         <ConfirmDialog

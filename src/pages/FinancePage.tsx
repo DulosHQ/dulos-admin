@@ -958,8 +958,8 @@ export default function FinancePage() {
                                     <thead>
                                       <tr>
                                         <th>Recinto</th>
-                                        <th className="text-right">Boletos</th>
-                                        <th className="text-right">Órdenes</th>
+                                        <th className="text-right" title="Boletos vendidos en este recinto">Vendidos</th>
+                                        <th className="text-right" title="Número de transacciones completadas">Órdenes</th>
                                         <th className="text-right">Revenue</th>
                                       </tr>
                                     </thead>
@@ -1272,7 +1272,7 @@ export default function FinancePage() {
                   <th className="text-right cursor-pointer" onClick={() => toggleSort('amount')}>
                     <span className="inline-flex items-center gap-1 justify-end w-full">Monto{txSort.col === 'amount' && <span className={txSort.asc ? '' : 'rotate-180 inline-block'}>▲</span>}</span>
                   </th>
-                  <th className="text-right hidden sm:table-cell">Boletos</th>
+                  <th className="text-right hidden sm:table-cell" title="Boletos en esta transacción">Vendidos</th>
                   <th>Estado</th>
                 </tr>
               </thead>
@@ -1461,7 +1461,7 @@ export default function FinancePage() {
                   <thead>
                     <tr>
                       <th>Evento</th>
-                      <th className="text-right">Boletos</th>
+                      <th className="text-right" title="Total de boletos vendidos">Vendidos</th>
                       <th className="text-right">Ingresos</th>
                       <th className="text-right text-[#EF4444]">Dulos (15%)</th>
                       <th className="text-right text-emerald-600">Productor (85%)</th>

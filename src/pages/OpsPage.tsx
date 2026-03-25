@@ -229,6 +229,16 @@ export default function OpsPage() {
 
   const startCamera = useCallback(async () => {
     try {
+      // Check permission status first to give better guidance
+      if (navigator.permissions) {
+        try {
+          const permStatus = await navigator.permissions.query({ name: 'camera' as PermissionName })
+          if (permStatus.state === 'denied') {
+            setCameraError('El permiso de cámara fue denegado anteriormente. Para activarlo:\n\n1. Haz clic en el ícono de candado 🔒 en la barra de dirección\n2. Busca "Cámara" en Permisos\n3. Cámbialo a "Permitir"\n4. Recarga la página\n\nEn móvil: ve a Ajustes del navegador → Permisos de sitios → Cámara')
+            return
+          }
+        } catch { /* permissions API not available for camera, proceed normally */ }
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
       })
@@ -243,7 +253,7 @@ export default function OpsPage() {
       toast.success('Cámara activa — apunta al código QR')
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
-        setCameraError('Permiso de cámara denegado. Haz clic en el ícono de candado 🔒 en la barra de dirección → Permisos → Cámara → Permitir, luego recarga la página.')
+        setCameraError('Permiso de cámara denegado. Para solicitarlo de nuevo:\n\n1. Haz clic en el ícono de candado 🔒 en la barra de dirección\n2. Busca "Cámara" → "Permitir"\n3. Recarga la página\n\nEn Chrome móvil: Ajustes → Configuración del sitio → Cámara')
       } else if (err instanceof DOMException && err.name === 'NotFoundError') {
         setCameraError('No se encontró una cámara en este dispositivo. Usa la validación manual con el código del boleto.')
       } else {
@@ -323,7 +333,7 @@ export default function OpsPage() {
   const eventosUnicos = [...new Set(checkins.map(c => c.event_name))]
   const historialFiltrado = checkins.filter(c => {
     if (filtroEvento && c.event_name !== filtroEvento) return false
-    if (busqueda && !c.customer_name.toLowerCase().includes(busqueda.toLowerCase())) return false
+    if (busqueda && !c.customer_name.toLowerCase().includes(busqueda.toLowerCase()) && !c.ticket_number.toLowerCase().includes(busqueda.toLowerCase())) return false
     return true
   })
 
@@ -376,7 +386,7 @@ export default function OpsPage() {
       {/* Sub-tabs Navigation */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-200">
-          {['escaneo', 'clientes', 'gestion'].map((tab) => (
+          {['escaneo', 'clientes', 'gestion', ...(blogPosts.length > 0 ? ['blog'] : [])].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -388,6 +398,7 @@ export default function OpsPage() {
             >
               {tab === 'escaneo' ? `Escaneo (${checkins.length})` :
                tab === 'clientes' ? `Clientes (${customerTotal.toLocaleString()})` :
+               tab === 'blog' ? `Blog / SEO (${blogPosts.length})` :
                `Gestión (${cupones.length + escalations.length})`}
             </button>
           ))}
@@ -463,7 +474,7 @@ export default function OpsPage() {
                       <option value="">Todos</option>
                       {eventosUnicos.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
-                    <input type="text" placeholder="Buscar..." value={busqueda} onChange={e => { setBusqueda(e.target.value); setCheckinPage(0) }} className="px-2 py-1 border border-gray-200 rounded text-xs w-24 sm:w-28" />
+                    <input type="text" placeholder="Nombre o # boleto..." value={busqueda} onChange={e => { setBusqueda(e.target.value); setCheckinPage(0) }} className="px-2 py-1 border border-gray-200 rounded text-xs w-28 sm:w-36" />
                   </div>
                 </div>
                 <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
@@ -852,7 +863,32 @@ export default function OpsPage() {
             </div>
           )}
 
-          {/* Dead tabs removed — fused into Escaneo, Clientes, Gestión */}
+          {/* Blog / SEO Tab */}
+          {activeTab === 'blog' && blogPosts.length > 0 && (
+            <div className="space-y-3">
+              <table className="data-table text-xs">
+                <thead><tr><th>Título</th><th>Estado</th><th className="hidden sm:table-cell">Publicado</th><th>Link</th></tr></thead>
+                <tbody>
+                  {blogPosts.map(bp => (
+                    <tr key={bp.id}>
+                      <td className="font-bold max-w-[250px]">{bp.title}</td>
+                      <td><span className={`badge ${(bp as any).published ? 'badge-success' : 'badge-warning'}`}>{(bp as any).published ? 'Publicado' : 'Borrador'}</span></td>
+                      <td className="hidden sm:table-cell text-gray-400">{bp.published_at ? new Date(bp.published_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '—'}</td>
+                      <td>
+                        {bp.slug ? (
+                          <a href={`https://dulos.io/blog/${bp.slug}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-[10px] font-medium">🔗 Ver</a>
+                        ) : (
+                          <span className="text-gray-300 text-[10px]">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Dead tabs removed — fused into Escaneo, Clientes, Gestión, Blog */}
         </div>
       </div>
 
@@ -893,35 +929,7 @@ export default function OpsPage() {
         </div>
       )}
 
-      {/* ====== BLOG (relocated from Config → Block 3) ====== */}
-      {blogPosts.length > 0 && (
-        <div className="section-card">
-          <div className="section-card-header">
-            <span className="section-card-title">📝 Blog / SEO ({blogPosts.length})</span>
-          </div>
-          <div className="section-card-body overflow-x-auto">
-            <table className="data-table text-xs">
-              <thead><tr><th>Título</th><th>Estado</th><th className="hidden sm:table-cell">Publicado</th><th>Link</th></tr></thead>
-              <tbody>
-                {blogPosts.map(bp => (
-                  <tr key={bp.id}>
-                    <td className="font-bold max-w-[250px]">{bp.title}</td>
-                    <td><span className={`badge ${(bp as any).published ? 'badge-success' : 'badge-warning'}`}>{(bp as any).published ? 'Publicado' : 'Borrador'}</span></td>
-                    <td className="hidden sm:table-cell text-gray-400">{bp.published_at ? new Date(bp.published_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '—'}</td>
-                    <td>
-                      {bp.slug ? (
-                        <a href={`https://dulos.io/blog/${bp.slug}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-[10px] font-medium">🔗 Ver</a>
-                      ) : (
-                        <span className="text-gray-300 text-[10px]">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* Blog moved to its own sub-tab above */}
 
       {/* Coupon Create Modal */}
       {showCouponModal && (
