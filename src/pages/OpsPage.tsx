@@ -941,15 +941,18 @@ export default function OpsPage() {
                 {cupones.map(c => {
                   const usedCount = c.uses_count || 0
                   const discType = c.type || 'fixed'
-                  const discountVal = discType === 'percentage' ? (c.discount_percent || 0) : (c.discount_amount || 0)
-                  const discLabel = discType === 'percentage' ? `${discountVal}%` : fmtCurrency(discountVal)
+                  // Some coupons have type='flat' but use discount_percent — handle gracefully
+                  const hasPercent = c.discount_percent && c.discount_percent > 0
+                  const hasAmount = c.discount_amount && c.discount_amount > 0
+                  const discountVal = hasPercent ? c.discount_percent : hasAmount ? c.discount_amount : 0
+                  const discLabel = hasPercent ? `${discountVal}%` : fmtCurrency(discountVal || 0)
 
                   return (
                     <tr key={c.id}>
                       <td className="font-mono font-bold">{c.code}</td>
                       <td>
                         <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-700">
-                          {discType === 'percentage' ? 'Porcentaje' : discType === 'bogo' ? 'BOGO' : 'Monto fijo'}
+                          {hasPercent ? 'Porcentaje' : discType === 'bogo' ? 'BOGO' : 'Monto fijo'}
                         </span>
                       </td>
                       <td className="font-bold text-[#EF4444]">{discLabel}</td>
