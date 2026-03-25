@@ -176,7 +176,7 @@ export default function FinancePage() {
           fetchTickets().catch(() => [] as Ticket[]),
           fetchRevenueByEvent().catch(() => []),
           fetchSalesSummary().catch(() => [] as SalesSummary[]),
-          fetchDispersions().catch(() => [] as DispersionFull[]),
+          Promise.resolve([]) as Promise<DispersionFull[]> /* dispersions table pending */,
         ]);
         setRawZones(zones);
         setRawTickets(tickets);

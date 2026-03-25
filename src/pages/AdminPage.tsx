@@ -196,9 +196,9 @@ export default function AdminPage() {
           fetchAuditLogsByAction(logFilter).catch(() => []),
           fetchDashboardStats().catch(() => null),
           fetchVenues().catch(() => []),
-          fetchNotifications().catch(() => []),
-          fetchReminders().catch(() => []),
-          fetchSurveys().catch(() => []),
+          Promise.resolve([]) /* notifications table pending */,
+          Promise.resolve([]) /* reminders table pending */,
+          Promise.resolve([]) /* surveys table pending */,
           fetchBlogPosts().catch(() => []),
         ]);
         setVenues(venuesData);

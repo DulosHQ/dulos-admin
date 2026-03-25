@@ -156,8 +156,8 @@ export default function OpsPage() {
       fetchNotificationLogs().catch(() => []),
       fetchAllEvents().catch(() => []),
       fetchTicketRecovery().catch(() => []),
-      fetchAllEscalations().catch(() => []),
-      fetchScannerLinks().catch(() => []),
+      Promise.resolve([]) /* escalations table pending */,
+      Promise.resolve([]) /* scanner_links table pending */,
       fetchBlogPosts().catch(() => []),
       fetchPendingGuests().catch(() => []),
     ]).then(([ci, co, tk, nl, ev, tr, esc, sl, bp, pg]) => {

@@ -176,7 +176,7 @@ export default function SummaryPage() {
           fetchZones().catch(() => [] as TicketZone[]),
           fetchRecentOrders(100).catch(() => [] as Order[]),
           fetchCheckins().catch(() => [] as Checkin[]),
-          fetchEscalations().catch(() => [] as Escalation[]),
+          Promise.resolve([]) as Promise<Escalation[]> /* table pending */,
           fetchRecentTickets(100).catch(() => [] as Ticket[]),
           fetchSchedules().catch(() => [] as Schedule[]),
           getVenueMap().catch(() => new Map<string, Venue>()),
