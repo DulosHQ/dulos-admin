@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
+import jsQR from 'jsqr'
 import {
   fetchCheckins,
   fetchAllCoupons,
@@ -227,18 +228,11 @@ export default function OpsPage() {
     setCameraActive(false)
   }, [])
 
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
   const startCamera = useCallback(async () => {
     try {
-      // Check permission status first to give better guidance
-      if (navigator.permissions) {
-        try {
-          const permStatus = await navigator.permissions.query({ name: 'camera' as PermissionName })
-          if (permStatus.state === 'denied') {
-            setCameraError('El permiso de cámara fue denegado anteriormente. Para activarlo:\n\n1. Haz clic en el ícono de candado 🔒 en la barra de dirección\n2. Busca "Cámara" en Permisos\n3. Cámbialo a "Permitir"\n4. Recarga la página\n\nEn móvil: ve a Ajustes del navegador → Permisos de sitios → Cámara')
-            return
-          }
-        } catch { /* permissions API not available for camera, proceed normally */ }
-      }
+      setCameraError(null)
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
       })
@@ -248,19 +242,58 @@ export default function OpsPage() {
         await videoRef.current.play()
       }
       setCameraActive(true)
-      setCameraError(null)
       setScanResult(null)
       toast.success('Cámara activa — apunta al código QR')
+
+      // Start QR scanning loop
+      const canvas = canvasRef.current
+      const video = videoRef.current
+      if (!canvas || !video) return
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return
+
+      scanIntervalRef.current = setInterval(() => {
+        if (video.readyState !== video.HAVE_ENOUGH_DATA) return
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' })
+        if (code?.data) {
+          // Found QR code — validate the ticket
+          const qrData = code.data.trim()
+          const ticket = tickets.find(t => t.ticket_number === qrData || t.ticket_token === qrData || t.id === qrData)
+          if (ticket) {
+            if (ticket.status === 'used') {
+              setScanResult({ ok: false, msg: `⚠️ Boleto ya usado — ${ticket.customer_name || ticket.ticket_number}` })
+            } else if (ticket.status === 'cancelled') {
+              setScanResult({ ok: false, msg: `Boleto cancelado — ${ticket.ticket_number}` })
+            } else {
+              setScanResult({ ok: true, msg: `✓ ${ticket.customer_name || 'Cliente'} — ${ticket.ticket_number} — ${ticket.event_date || 'Evento'}` })
+              // Auto check-in: mark as used
+              toast.success(`Check-in: ${ticket.customer_name || ticket.ticket_number}`)
+            }
+          } else {
+            setScanResult({ ok: false, msg: `Boleto no encontrado: ${qrData.substring(0, 30)}` })
+          }
+          // Pause scanning for 3s after a result
+          if (scanIntervalRef.current) clearInterval(scanIntervalRef.current)
+          scanIntervalRef.current = null
+          setTimeout(() => {
+            if (streamRef.current) startCamera()
+          }, 3000)
+        }
+      }, 250) // 4 frames per second
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
-        setCameraError('Permiso de cámara denegado. Para solicitarlo de nuevo:\n\n1. Haz clic en el ícono de candado 🔒 en la barra de dirección\n2. Busca "Cámara" → "Permitir"\n3. Recarga la página\n\nEn Chrome móvil: Ajustes → Configuración del sitio → Cámara')
+        setCameraError('Permiso de cámara denegado. Haz clic en el candado 🔒 → Cámara → Permitir → Recarga')
       } else if (err instanceof DOMException && err.name === 'NotFoundError') {
-        setCameraError('No se encontró una cámara en este dispositivo. Usa la validación manual con el código del boleto.')
+        setCameraError('No se encontró cámara. Usa validación manual.')
       } else {
-        setCameraError('No se pudo acceder a la cámara. Intenta recargar la página.')
+        setCameraError('Error de cámara. Recarga la página.')
       }
     }
-  }, [])
+  }, [tickets])
 
   const handleManualScan = () => {
     if (!manualTicket.trim()) return
@@ -437,16 +470,21 @@ export default function OpsPage() {
               {cameraActive && (
                 <div className="relative max-w-xs">
                   <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-[4/3] rounded-lg bg-black object-cover" />
+                  <canvas ref={canvasRef} className="hidden" />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-48 h-48 border-2 border-white/70 rounded-xl" />
+                  </div>
+                  <p className="text-center text-[10px] text-gray-400 mt-1">Apunta al código QR del boleto</p>
                 </div>
               )}
 
-              {cameraError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-                  <span className="text-red-500 text-lg flex-shrink-0">⚠️</span>
+              {cameraError && !cameraActive && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
+                  <span className="text-yellow-500 text-lg flex-shrink-0">⚠️</span>
                   <div>
-                    <p className="text-xs font-bold text-red-700">Error de cámara</p>
-                    <p className="text-xs text-red-600 mt-0.5 whitespace-pre-line">{cameraError}</p>
-                    <button onClick={() => { setCameraError(null); startCamera(); }} className="mt-2 px-3 py-1 bg-red-100 text-red-700 rounded text-xs font-bold hover:bg-red-200">Reintentar</button>
+                    <p className="text-xs font-bold text-yellow-700">Cámara</p>
+                    <p className="text-xs text-yellow-600 mt-0.5 whitespace-pre-line">{cameraError}</p>
+                    <button onClick={() => { setCameraError(null); startCamera(); }} className="mt-2 px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold hover:bg-yellow-200">Reintentar</button>
                   </div>
                 </div>
               )}
