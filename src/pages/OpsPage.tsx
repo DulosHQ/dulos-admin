@@ -583,32 +583,51 @@ export default function OpsPage() {
           {activeTab === 'clientes' && (
             <div className="space-y-4">
               {/* Pending Guests Alert */}
-              {pendingGuests.length > 0 && (
+              {pendingGuests.length > 0 && (() => {
+                const withData = pendingGuests.filter(pg => {
+                  const g = pg.guests?.[0] || {};
+                  return g.name || g.email || g.phone;
+                });
+                const ghostCount = pendingGuests.length - withData.length;
+                return (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <h3 className="text-sm font-extrabold text-red-700 mb-1">⚠️ Clientes Pendientes ({pendingGuests.length})</h3>
-                  <p className="text-xs text-red-600 mb-1">Pagaron pero no recibieron boletos — requiere acción manual</p>
-                  <p className="text-[10px] text-red-500 mb-2">💡 Busca el Payment ID en Stripe para encontrar datos del comprador y reenviar boletos</p>
-                  <div className="overflow-x-auto">
-                    <table className="data-table text-xs">
-                      <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th className="hidden sm:table-cell">Payment ID</th><th>Fecha</th></tr></thead>
-                      <tbody>
-                        {pendingGuests.map((pg, i) => {
-                          const guest = pg.guests?.[0] || {};
-                          return (
-                          <tr key={pg.id || i}>
-                            <td className="font-bold">{guest.name ? `${guest.name} ${guest.lastName || ''}`.trim() : '—'}</td>
-                            <td className="text-gray-500">{guest.email || '—'}</td>
-                            <td className="whitespace-nowrap">{guest.phone || '—'}</td>
-                            <td className="text-[10px]">{pg.payment_intent_id ? <a href={`https://dashboard.stripe.com/payments/${pg.payment_intent_id}`} target="_blank" rel="noopener noreferrer" className="font-mono text-blue-500 hover:underline">{pg.payment_intent_id.slice(0, 15)}…</a> : '—'}</td>
-                            <td className="whitespace-nowrap">{pg.created_at ? new Date(pg.created_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '—'}</td>
-                          </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <h3 className="text-sm font-extrabold text-red-700 mb-1">⚠️ Clientes Pendientes ({withData.length})</h3>
+                  {ghostCount > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5 mb-2">
+                      <p className="text-[10px] text-yellow-700 font-bold">⚠️ {ghostCount} registros sin datos de cliente — solo contienen Payment ID</p>
+                      <p className="text-[10px] text-yellow-600">Pagos donde el formulario de datos no se completó. Verifica configuración del checkout y webhook de Stripe.</p>
+                    </div>
+                  )}
+                  {withData.length > 0 ? (
+                    <>
+                    <p className="text-xs text-red-600 mb-1">Pagaron pero no recibieron boletos — requiere acción manual</p>
+                    <p className="text-[10px] text-red-500 mb-2">💡 Busca el Payment ID en Stripe para encontrar datos del comprador y reenviar boletos</p>
+                    <div className="overflow-x-auto">
+                      <table className="data-table text-xs">
+                        <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th className="hidden sm:table-cell">Payment ID</th><th>Fecha</th></tr></thead>
+                        <tbody>
+                          {withData.map((pg, i) => {
+                            const guest = pg.guests?.[0] || {};
+                            return (
+                            <tr key={pg.id || i}>
+                              <td className="font-bold">{guest.name ? `${guest.name} ${guest.lastName || ''}`.trim() : '—'}</td>
+                              <td className="text-gray-500">{guest.email || '—'}</td>
+                              <td className="whitespace-nowrap">{guest.phone || '—'}</td>
+                              <td className="text-[10px]">{pg.payment_intent_id ? <a href={`https://dashboard.stripe.com/payments/${pg.payment_intent_id}`} target="_blank" rel="noopener noreferrer" className="font-mono text-blue-500 hover:underline">{pg.payment_intent_id.slice(0, 15)}…</a> : '—'}</td>
+                              <td className="whitespace-nowrap">{pg.created_at ? new Date(pg.created_at).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : '—'}</td>
+                            </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    </>
+                  ) : (
+                    <p className="text-[10px] text-gray-500">Todos los registros pendientes carecen de datos de cliente. Revisa la configuración del webhook de Stripe.</p>
+                  )}
                 </div>
-              )}
+                );
+              })()}
               <h2 className="text-lg font-bold text-[#1E293B]">Búsqueda de Clientes</h2>
               <div className="flex gap-2 mb-3">
                 <input
