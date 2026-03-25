@@ -76,6 +76,7 @@ export interface TicketZone {
   original_price: number;
   available: number;
   sold: number;
+  total_capacity?: number;
 }
 
 export interface Order {

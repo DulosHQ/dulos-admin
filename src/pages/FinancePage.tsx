@@ -257,27 +257,53 @@ export default function FinancePage() {
       }
     });
 
-    const eventRevenues = Array.from(eventAggMap.values()).map(e => ({
-      event_id: e.event_ids[0], // primary event_id for lookups
-      event_ids: e.event_ids,
-      event_name: e.event_name,
-      venues: e.venues,
-      revenue: e.revenue,
-      orders: e.orders,
-      tickets: e.tickets,
-      refunded: e.refunded || 0,
-      image_url: e.image_url,
-    })).sort((a, b) => b.revenue - a.revenue);
+    // Compute actual tickets sold from orders (fallback when v_sales_summary.total_tickets_sold is stale)
+    const orderTicketsByEvent = new Map<string, number>();
+    rawOrders.filter(o => o.payment_status === 'completed').forEach(o => {
+      orderTicketsByEvent.set(o.event_id, (orderTicketsByEvent.get(o.event_id) || 0) + (o.quantity || 1));
+    });
+
+    const eventRevenues = Array.from(eventAggMap.values()).map(e => {
+      // Use orders-based ticket count when v_sales_summary returns 0 but orders exist
+      const orderBasedTickets = e.event_ids.reduce((sum, eid) => sum + (orderTicketsByEvent.get(eid) || 0), 0);
+      const realTickets = e.tickets > 0 ? e.tickets : orderBasedTickets;
+      // Also fix per-venue tickets
+      const enrichedVenues = e.venues.map(v => ({
+        ...v,
+        tickets: v.tickets > 0 ? v.tickets : (orderTicketsByEvent.get(v.event_id) || 0),
+      }));
+      return {
+        event_id: e.event_ids[0],
+        event_ids: e.event_ids,
+        event_name: e.event_name,
+        venues: enrichedVenues,
+        revenue: e.revenue,
+        orders: e.orders,
+        tickets: realTickets,
+        refunded: e.refunded || 0,
+        image_url: e.image_url,
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
 
     // --- Scorecard using Sales Summary (REAL DATA) ---
 
     // Use real revenue from v_sales_summary
     const totalRevenue = filteredSalesSummary.reduce((sum, s) => sum + s.total_revenue, 0);
     const totalOrders = filteredSalesSummary.reduce((sum, s) => sum + s.total_orders, 0);
-    const totalTicketsSold = filteredSalesSummary.reduce((sum, s) => sum + s.total_tickets_sold, 0);
+    const summaryTickets = filteredSalesSummary.reduce((sum, s) => sum + s.total_tickets_sold, 0);
+    const orderBasedTotalTickets = filteredSalesSummary.reduce((sum, s) => sum + (orderTicketsByEvent.get(s.event_id) || 0), 0);
+    const totalTicketsSold = summaryTickets > 0 ? summaryTickets : orderBasedTotalTickets;
 
-    // Keep zone-based calculations for occupancy (as per requirements)
-    const totalSold = filteredZones.reduce((sum, z) => sum + z.sold, 0);
+    // Keep zone-based calculations for occupancy (as per requirements) — enriched with order data
+    const orderSoldByZone = new Map<string, number>();
+    rawOrders.filter(o => o.payment_status === 'completed').forEach(o => {
+      const key = `${o.event_id}:${o.zone_name}`;
+      orderSoldByZone.set(key, (orderSoldByZone.get(key) || 0) + (o.quantity || 1));
+    });
+    const totalSold = filteredZones.reduce((sum, z) => {
+      const orderSold = orderSoldByZone.get(`${z.event_id}:${z.zone_name}`) || 0;
+      return sum + Math.max(z.sold, orderSold);
+    }, 0);
     const totalAvailable = filteredZones.reduce((sum, z) => sum + z.available + z.sold, 0);
     const occupancyPercent = totalAvailable > 0 ? (totalSold / totalAvailable) * 100 : 0;
     const aov = totalTicketsSold > 0 ? totalRevenue / totalTicketsSold : 0;
@@ -609,7 +635,43 @@ export default function FinancePage() {
     // Fetch zones for ALL event_ids (aggregated events)
     const ids = new Set(eventIds || [eventId]);
     const zones = rawZones.filter(z => ids.has(z.event_id));
-    setExpandedEventZones(zones);
+    
+    // Compute actual sold from orders (ticket_zones.sold may be stale)
+    const orderSoldMap = new Map<string, number>();
+    rawOrders
+      .filter(o => ids.has(o.event_id) && o.payment_status === 'completed')
+      .forEach(o => {
+        const key = `${o.event_id}:${o.zone_name}`;
+        orderSoldMap.set(key, (orderSoldMap.get(key) || 0) + (o.quantity || 1));
+      });
+    
+    // Merge: use MAX(ticket_zones.sold, orders.sold) to handle both sources
+    const enrichedZones = zones.map(z => {
+      const orderSold = orderSoldMap.get(`${z.event_id}:${z.zone_name}`) || 0;
+      const realSold = Math.max(z.sold, orderSold);
+      const realAvailable = Math.max(0, (z.total_capacity || (z.sold + z.available)) - realSold);
+      return { ...z, sold: realSold, available: realAvailable };
+    });
+    
+    // Also add zones that exist in orders but NOT in ticket_zones (mismatched names)
+    const zoneKeys = new Set(zones.map(z => `${z.event_id}:${z.zone_name}`));
+    const missingZones: typeof zones = [];
+    orderSoldMap.forEach((sold, key) => {
+      if (!zoneKeys.has(key)) {
+        const [evId, zoneName] = [key.split(':')[0], key.split(':').slice(1).join(':')];
+        missingZones.push({
+          event_id: evId,
+          zone_name: zoneName,
+          zone_type: 'ga',
+          price: rawOrders.find(o => o.event_id === evId && o.zone_name === zoneName)?.unit_price || 0,
+          original_price: 0,
+          available: 0,
+          sold: sold,
+        } as any);
+      }
+    });
+    
+    setExpandedEventZones([...enrichedZones, ...missingZones]);
     // Try to fetch event sections (Paolo's seat architecture) — silently fail if table doesn't exist
     try {
       const sections = await fetchEventSections(eventId);
