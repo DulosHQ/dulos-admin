@@ -36,23 +36,12 @@ export default function AdsPage() {
   const [viewLevel, setViewLevel] = useState<ViewLevel>('campaign');
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
 
-  // Get admin key from cookie
-  const getAdminKey = () => {
-    if (typeof document !== 'undefined') {
-      const cookies = document.cookie.split(';');
-      const adminKeyCookie = cookies.find(cookie => cookie.trim().startsWith('admin_key='));
-      return adminKeyCookie?.split('=')[1];
-    }
-    return '';
-  };
-
   const fetchInsights = async (level: ViewLevel, campaignId?: string | null) => {
     setLoading(true);
     setError(null);
     
     try {
-      const adminKey = getAdminKey();
-      let url = `/api/meta-insights?level=${level}&date_preset=${datePreset}&key=${adminKey}`;
+      let url = `/api/meta-insights?level=${level}&date_preset=${datePreset}`;
       
       // If drilling down to adsets, filter by campaign
       if (level === 'adset' && campaignId) {

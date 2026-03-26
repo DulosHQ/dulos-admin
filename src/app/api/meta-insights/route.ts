@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || '';
-const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const AD_ACCOUNT = 'act_1372745737889888';
 
 export async function GET(request: NextRequest) {
   try {
-    // Auth check: either admin_key cookie or key query param
-    const cookieStore = await cookies();
-    const adminKeyCookie = cookieStore.get('admin_key')?.value;
-    const keyParam = request.nextUrl.searchParams.get('key');
-
-    if (!adminKeyCookie && (!keyParam || keyParam !== ADMIN_SECRET)) {
+    // Auth check: Supabase session (middleware already guards, but double-check)
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return request.cookies.getAll(); },
+          setAll() {},
+        },
+      }
+    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
