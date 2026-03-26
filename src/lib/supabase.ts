@@ -1007,6 +1007,14 @@ export async function fetchScheduleInventory(scheduleId?: string): Promise<Sched
   }
 }
 
+export async function fetchOrdersBySchedule(scheduleId: string): Promise<Order[]> {
+  try {
+    return await supabaseFetch<Order[]>(`orders?schedule_id=eq.${scheduleId}&order=purchased_at.desc`);
+  } catch {
+    return [];
+  }
+}
+
 // ─── Notifications ───
 
 export async function fetchNotifications(): Promise<Notification[]> {

@@ -18,6 +18,7 @@ import {
   ScheduleInventory,
   Venue,
 } from '../lib/supabase';
+import FunctionDetail from './FunctionDetail';
 
 /* ─── Types ─── */
 interface EventCard {
@@ -130,29 +131,19 @@ function DrillDown({ event: ev, onBack }: { event: EventCard; onBack: () => void
                   <svg className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${exp ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
                 </div>
               </div>
-              {exp && s.zones.length > 0 && (
-                <div className="border-t border-gray-800 px-4 py-3 animate-fade-in">
-                  <table className="w-full text-xs">
-                    <thead><tr className="text-gray-500 border-b border-gray-800">
-                      <th className="text-left pb-2 font-medium">Zona</th>
-                      <th className="text-center pb-2 font-medium hidden sm:table-cell">Tipo</th>
-                      <th className="text-right pb-2 font-medium hidden sm:table-cell">Precio</th>
-                      <th className="text-right pb-2 font-medium">Vend.</th>
-                      <th className="text-right pb-2 font-medium">Cap.</th>
-                      <th className="text-right pb-2 font-medium">Ocup.</th>
-                    </tr></thead>
-                    <tbody>{s.zones.map(z => (
-                      <tr key={z.zone_id} className="border-b border-gray-800/50 last:border-0">
-                        <td className="py-2 text-white font-medium"><span className="flex items-center gap-2"><Sem pct={z.occupancyPct} sm/>{z.zone_name}</span></td>
-                        <td className="py-2 text-center hidden sm:table-cell"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${z.zone_type === 'ga' ? 'bg-green-900/40 text-green-400' : 'bg-orange-900/40 text-orange-400'}`}>{z.zone_type === 'ga' ? 'GA' : 'NUM'}</span></td>
-                        <td className="py-2 text-right text-gray-400 hidden sm:table-cell">{fmt(z.price)}</td>
-                        <td className="py-2 text-right text-white">{z.sold}</td>
-                        <td className="py-2 text-right text-gray-400">{z.capacity}</td>
-                        <td className="py-2 text-right"><span className={`font-bold ${z.occupancyPct >= 70 ? 'text-green-400' : z.occupancyPct >= 30 ? 'text-yellow-400' : 'text-red-400'}`}>{z.occupancyPct.toFixed(0)}%</span></td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
+              {exp && (
+                <FunctionDetail
+                  scheduleId={s.id}
+                  eventId={ev.id}
+                  eventName={ev.name}
+                  venueName={ev.venueName}
+                  date={s.date}
+                  startTime={s.start_time}
+                  endTime={s.end_time}
+                  status={s.status}
+                  totalSold={s.sold}
+                  totalCapacity={s.capacity}
+                />
               )}
             </div>
           );
