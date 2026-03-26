@@ -190,7 +190,27 @@ export default function EventsPage() {
 
   const zoneById = useMemo(() => { const m = new Map<string, TicketZone & {id:string}>(); zones.forEach(z => { const t = z as TicketZone & {id:string}; if(t.id) m.set(t.id, t); }); return m; }, [zones]);
   const revByEvent = useMemo(() => { const m = new Map<string, number>(); orders.forEach(o => { if(o.payment_status==='completed'||o.payment_status==='paid') m.set(o.event_id, (m.get(o.event_id)||0)+o.total_price); }); return m; }, [orders]);
-  const revBySched = useMemo(() => { const m = new Map<string, number>(); orders.forEach(o => { if((o.payment_status==='completed'||o.payment_status==='paid')&&o.schedule_id) m.set(o.schedule_id, (m.get(o.schedule_id)||0)+o.total_price); }); return m; }, [orders]);
+  const revBySched = useMemo(() => { 
+    const m = new Map<string, number>(); 
+    const schedMap = new Map<string, string>(); // event_id -> schedule_id mapping for date matching
+    schedules.forEach(s => schedMap.set(s.event_id + '|' + s.date, s.id));
+    
+    orders.forEach(o => { 
+      if(o.payment_status==='completed'||o.payment_status==='paid') {
+        if(o.schedule_id) {
+          // Direct schedule_id match
+          m.set(o.schedule_id, (m.get(o.schedule_id)||0)+o.total_price); 
+        } else if(o.event_date) {
+          // Fallback: match by event_id + date for LEGACY orders
+          const scheduleId = schedMap.get(o.event_id + '|' + o.event_date);
+          if(scheduleId) {
+            m.set(scheduleId, (m.get(scheduleId)||0)+o.total_price);
+          }
+        }
+      }
+    }); 
+    return m; 
+  }, [orders, schedules]);
   const invBySched = useMemo(() => { const m = new Map<string, ScheduleInventory[]>(); allInv.forEach(i => { const a = m.get(i.schedule_id)||[]; a.push(i); m.set(i.schedule_id, a); }); return m; }, [allInv]);
 
   const cards: EventCard[] = useMemo(() => {
@@ -201,8 +221,41 @@ export default function EventsPage() {
       const isPast = eSch.length > 0 ? eSch.every(s => { const d = new Date(s.date); d.setHours(0,0,0,0); return d < today; }) : evt.start_date ? new Date(evt.start_date) < today : false;
       const rows: ScheduleRow[] = eSch.sort((a,b) => (a.date||'').localeCompare(b.date||'')||(a.start_time||'').localeCompare(b.start_time||'')).map(sc => {
         const inv = invBySched.get(sc.id) || [];
-        const zr: ZoneRow[] = inv.map(si => { const tz = zoneById.get(si.zone_id); const cap = si.total_capacity||(si.sold+si.available)||0; const sold = si.sold||0; return { zone_id: si.zone_id, zone_name: tz?.zone_name||'Zona', zone_type: tz?.zone_type||'ga', price: tz?.price||0, sold, capacity: cap, occupancyPct: cap>0?(sold/cap)*100:0 }; });
-        if(zr.length===0 && eZon.length>0) eZon.forEach(tz => { const cap = (tz.available||0)+(tz.sold||0); zr.push({ zone_id: (tz as TicketZone & {id:string}).id||'', zone_name: tz.zone_name, zone_type: tz.zone_type||'ga', price: tz.price, sold: tz.sold||0, capacity: cap, occupancyPct: cap>0?((tz.sold||0)/cap)*100:0 }); });
+        const zr: ZoneRow[] = [];
+        
+        if (inv.length > 0) {
+          // Use schedule_inventory when available (ALWAYS prefer this)
+          inv.forEach(si => {
+            const tz = zoneById.get(si.zone_id);
+            const sold = si.sold || 0;
+            const available = si.available || 0;
+            const cap = sold + available; // Correct capacity = sold + available (NOT total_capacity which may be venue-level)
+            zr.push({
+              zone_id: si.zone_id,
+              zone_name: tz?.zone_name || 'Zona',
+              zone_type: tz?.zone_type || 'ga',
+              price: tz?.price || 0,
+              sold,
+              capacity: cap,
+              occupancyPct: cap > 0 ? (sold / cap) * 100 : 0
+            });
+          });
+        } else if (eZon.length > 0) {
+          // Only fallback to event-level zones if NO schedule_inventory exists
+          eZon.forEach(tz => {
+            const cap = (tz.available || 0) + (tz.sold || 0);
+            zr.push({
+              zone_id: (tz as TicketZone & {id:string}).id || '',
+              zone_name: tz.zone_name,
+              zone_type: tz.zone_type || 'ga',
+              price: tz.price,
+              sold: tz.sold || 0,
+              capacity: cap,
+              occupancyPct: cap > 0 ? ((tz.sold || 0) / cap) * 100 : 0
+            });
+          });
+        }
+        
         const ts = zr.reduce((s,z)=>s+z.sold,0), tc = zr.reduce((s,z)=>s+z.capacity,0);
         return { id: sc.id, date: sc.date, start_time: sc.start_time, end_time: sc.end_time, status: sc.status, sold: ts, capacity: tc, occupancyPct: tc>0?(ts/tc)*100:0, revenue: revBySched.get(sc.id)||0, zones: zr };
       });
