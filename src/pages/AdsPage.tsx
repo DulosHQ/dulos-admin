@@ -25,7 +25,7 @@ interface MetaInsightsResponse {
   paging?: any;
 }
 
-type DatePreset = 'last_7d' | 'last_30d' | 'maximum';
+type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_30d' | 'maximum';
 type ViewLevel = 'campaign' | 'adset';
 
 export default function AdsPage() {
@@ -157,7 +157,7 @@ export default function AdsPage() {
 
           {/* Date Filter */}
           <div className="flex gap-2">
-            {(['last_7d', 'last_30d', 'maximum'] as DatePreset[]).map((preset) => (
+            {(['today', 'yesterday', 'last_7d', 'last_30d', 'maximum'] as DatePreset[]).map((preset) => (
               <button
                 key={preset}
                 onClick={() => setDatePreset(preset)}
@@ -167,6 +167,8 @@ export default function AdsPage() {
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
+                {preset === 'today' && 'Hoy'}
+                {preset === 'yesterday' && 'Ayer'}
                 {preset === 'last_7d' && '7d'}
                 {preset === 'last_30d' && '30d'}
                 {preset === 'maximum' && 'Max'}
