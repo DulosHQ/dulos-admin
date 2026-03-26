@@ -376,7 +376,7 @@ export default function FinancePage() {
           // Per-zone breakdown for this schedule
           const zoneBreakdownForSchedule: ScheduleZoneBreakdown[] = [];
           for (const zone of eventZones) {
-            const zoneInv = scheduleInventory.find(inv => inv.zone_id === zone.zone_name || inv.zone_id === (zone as any).id);
+            const zoneInv = scheduleInventory.find(inv => inv.zone_id === zone.id);
             const zoneSold = zoneInv ? zoneInv.sold : scheduleOrders.filter(o => o.zone_name === zone.zone_name).reduce((sum, o) => sum + o.quantity, 0);
             const zoneCap = zoneInv ? (zoneInv.sold + zoneInv.available) : (zone.total_capacity || 0);
             const zoneRevenue = scheduleOrders.filter(o => o.zone_name === zone.zone_name).reduce((sum, o) => sum + (o.total_price - (o.discount_amount || 0)), 0);

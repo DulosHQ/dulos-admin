@@ -76,6 +76,7 @@ export interface SalesSummary {
 }
 
 export interface TicketZone {
+  id: string;
   event_id: string;
   zone_name: string;
   zone_type?: string; // ga | numbered | hybrid
@@ -1115,8 +1116,11 @@ export interface ScheduleInventory {
 export async function fetchScheduleInventory(scheduleId?: string): Promise<ScheduleInventory[]> {
   try {
     const filter = scheduleId ? `&schedule_id=eq.${scheduleId}` : '';
-    return await supabaseFetch<ScheduleInventory[]>(`schedule_inventory?order=created_at.desc${filter}`);
-  } catch {
+    const result = await supabaseFetch<ScheduleInventory[]>(`schedule_inventory?order=created_at.desc${filter}`);
+    console.log(`[fetchScheduleInventory] Loaded ${result.length} rows`);
+    return result;
+  } catch (err) {
+    console.error('[fetchScheduleInventory] FAILED:', err);
     return [];
   }
 }
