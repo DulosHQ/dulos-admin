@@ -2,16 +2,19 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-// For server-side admin fetches, prefer service role for BOTH headers.
-// Using anon in `apikey` with service-role bearer can cause inconsistent behavior
-// depending on gateway/project config.
-const REST_KEY = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
+// Detect if running in browser (client component) vs server
+const isBrowser = typeof window !== 'undefined';
 
-const headers = {
+// Direct headers for server-side usage only
+const REST_KEY = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
+const directHeaders = {
   'apikey': REST_KEY,
   'Authorization': `Bearer ${REST_KEY}`,
   'Content-Type': 'application/json',
 };
+
+// Legacy alias — some mutation functions still reference `headers`
+const headers = directHeaders;
 
 // Types
 export interface DulosEvent {
@@ -412,13 +415,112 @@ export interface EventCommission {
   updated_at: string;
 }
 
-async function supabaseFetch<T>(endpoint: string): Promise<T> {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, { headers });
+async function supabaseFetch<T>(endpoint: string, options?: { prefer?: string }): Promise<T & { __contentRange?: string }> {
+  if (isBrowser) {
+    // In browser: route through server proxy (service key stays server-side)
+    const [path, queryString] = endpoint.split('?');
+    const params = new URLSearchParams(queryString || '');
+    const proxyParams = new URLSearchParams();
+    proxyParams.set('path', path);
+    params.forEach((value, key) => proxyParams.set(key, value));
+
+    const fetchOpts: RequestInit = { cache: 'no-store' };
+    if (options?.prefer) {
+      fetchOpts.headers = { 'Prefer': options.prefer };
+    }
+
+    const response = await fetch(`/api/supabase-proxy?${proxyParams.toString()}`, fetchOpts);
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Supabase error: ${response.status} | ${body}`);
+    }
+    const data = await response.json();
+    // Attach content-range if present (for paginated queries)
+    const contentRange = response.headers.get('content-range');
+    if (contentRange && Array.isArray(data)) {
+      (data as any).__contentRange = contentRange;
+    }
+    return data;
+  }
+
+  // Server-side: direct Supabase access with service key
+  const reqHeaders: Record<string, string> = { ...directHeaders };
+  if (options?.prefer) reqHeaders['Prefer'] = options.prefer;
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, { headers: reqHeaders });
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     throw new Error(`Supabase error: ${response.status} ${response.statusText} | ${body}`);
   }
   return response.json();
+}
+
+// Paginated fetch helper (returns data + count from content-range)
+async function supabaseFetchPaginated<T>(endpoint: string): Promise<{ data: T[]; count: number; contentRange: string | null }> {
+  if (isBrowser) {
+    const [path, queryString] = endpoint.split('?');
+    const params = new URLSearchParams(queryString || '');
+    const proxyParams = new URLSearchParams();
+    proxyParams.set('path', path);
+    params.forEach((value, key) => proxyParams.set(key, value));
+
+    const response = await fetch(`/api/supabase-proxy?${proxyParams.toString()}`, {
+      cache: 'no-store',
+      headers: { 'Prefer': 'count=exact' },
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Supabase error: ${response.status} | ${body}`);
+    }
+    const data = await response.json();
+    const contentRange = response.headers.get('content-range');
+    const count = contentRange ? parseInt(contentRange.split('/')[1] || '0') : 0;
+    return { data, count, contentRange };
+  }
+
+  // Server-side direct
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+    headers: { ...directHeaders, 'Prefer': 'count=exact' },
+  });
+  if (!response.ok) {
+    throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json();
+  const contentRange = response.headers.get('content-range');
+  const count = contentRange ? parseInt(contentRange.split('/')[1] || '0') : 0;
+  return { data, count, contentRange };
+}
+
+// Mutation helper (POST/PATCH/DELETE via proxy in browser)
+async function supabaseMutate<T>(method: 'POST' | 'PATCH' | 'DELETE', endpoint: string, payload?: any): Promise<{ ok: boolean; data: T | null }> {
+  if (isBrowser) {
+    const [path, queryString] = endpoint.split('?');
+    const response = await fetch('/api/supabase-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method,
+        path,
+        query: queryString || '',
+        payload,
+      }),
+    });
+    if (!response.ok) return { ok: false, data: null };
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : null;
+    return { ok: true, data };
+  }
+
+  // Server-side direct
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+    method,
+    headers: { ...directHeaders, 'Prefer': 'return=representation' },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  if (!response.ok) return { ok: false, data: null };
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  return { ok: true, data };
 }
 
 // Venue cache and helpers
@@ -762,26 +864,15 @@ export async function fetchCustomerHistory(customerId: string): Promise<Customer
 export async function fetchCustomersPaginated(page: number = 1, pageSize: number = 20): Promise<{ data: Customer[]; count: number }> {
   try {
     const offset = (page - 1) * pageSize;
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?order=total_spent.desc&limit=${pageSize}&offset=${offset}`, {
-      headers: {
-        ...headers,
-        'Prefer': 'count=exact',
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
-    }
-    const contentRange = response.headers.get('content-range');
-    const count = contentRange ? parseInt(contentRange.split('/')[1] || '0') : 0;
-    const data = await response.json();
-    return { data, count };
+    const result = await supabaseFetchPaginated<Customer>(`customers?order=total_spent.desc&limit=${pageSize}&offset=${offset}`);
+    return { data: result.data, count: result.count };
   } catch (error) {
     console.error('Error fetching paginated customers:', error);
     throw error;
   }
 }
 
-// Server-side paginated customer search
+// Paginated customer search
 export async function fetchCustomersSearchPaginated(
   search: string,
   page: number = 1,
@@ -792,22 +883,8 @@ export async function fetchCustomersSearchPaginated(
     const searchFilter = search
       ? `&or=(name.ilike.*${encodeURIComponent(search)}*,email.ilike.*${encodeURIComponent(search)}*,phone.ilike.*${encodeURIComponent(search)}*)`
       : '';
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/customers?order=total_spent.desc&limit=${pageSize}&offset=${offset}${searchFilter}`,
-      {
-        headers: {
-          ...headers,
-          'Prefer': 'count=exact',
-        },
-      }
-    );
-    if (!response.ok) {
-      throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
-    }
-    const contentRange = response.headers.get('content-range');
-    const count = contentRange ? parseInt(contentRange.split('/')[1] || '0') : 0;
-    const data = await response.json();
-    return { data, count };
+    const result = await supabaseFetchPaginated<Customer>(`customers?order=total_spent.desc&limit=${pageSize}&offset=${offset}${searchFilter}`);
+    return { data: result.data, count: result.count };
   } catch (error) {
     console.error('Error searching customers:', error);
     throw error;
@@ -832,22 +909,8 @@ export async function fetchTransactionsPaginated(
     if (search) {
       filters += `&or=(customer_name.ilike.*${encodeURIComponent(search)}*,customer_email.ilike.*${encodeURIComponent(search)}*,order_number.ilike.*${encodeURIComponent(search)}*)`;
     }
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/orders?order=${sortColumn}.${sortDirection}&limit=${pageSize}&offset=${offset}${filters}`,
-      {
-        headers: {
-          ...headers,
-          'Prefer': 'count=exact',
-        },
-      }
-    );
-    if (!response.ok) {
-      throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
-    }
-    const contentRange = response.headers.get('content-range');
-    const count = contentRange ? parseInt(contentRange.split('/')[1] || '0') : 0;
-    const data = await response.json();
-    return { data, count };
+    const result = await supabaseFetchPaginated<Order>(`orders?order=${sortColumn}.${sortDirection}&limit=${pageSize}&offset=${offset}${filters}`);
+    return { data: result.data, count: result.count };
   } catch (error) {
     console.error('Error fetching paginated transactions:', error);
     throw error;
@@ -946,9 +1009,7 @@ export async function fetchDispersionsByEvent(eventId: string): Promise<Dispersi
 export async function fetchDispersions(eventId?: string): Promise<Dispersion[]> {
   try {
     const filter = eventId ? `&event_id=eq.${eventId}` : '';
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/dispersions?order=function_date.desc${filter}`, { headers });
-    if (!response.ok) return []; // Table may not exist yet
-    return response.json();
+    return await supabaseFetch<Dispersion[]>(`dispersions?order=function_date.desc${filter}`);
   } catch {
     return [];
   }
@@ -956,17 +1017,10 @@ export async function fetchDispersions(eventId?: string): Promise<Dispersion[]> 
 
 export async function createDispersion(data: Omit<Dispersion, 'id' | 'created_at'>): Promise<Dispersion | null> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/dispersions`, {
-      method: 'POST',
-      headers: { ...headers, 'Prefer': 'return=representation' },
-      body: JSON.stringify({
-        ...data,
-        created_at: new Date().toISOString(),
-      }),
-    });
-    if (!response.ok) return null;
-    const result = await response.json();
-    return Array.isArray(result) ? result[0] : result;
+    const payload = { ...data, created_at: new Date().toISOString() };
+    const result = await supabaseMutate<Dispersion[]>('POST', 'dispersions', payload);
+    if (!result.ok || !result.data) return null;
+    return Array.isArray(result.data) ? result.data[0] : result.data;
   } catch {
     return null;
   }
@@ -974,12 +1028,8 @@ export async function createDispersion(data: Omit<Dispersion, 'id' | 'created_at
 
 export async function updateDispersion(id: string, data: Partial<Omit<Dispersion, 'id' | 'created_at'>>): Promise<boolean> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/dispersions?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: { ...headers, 'Prefer': 'return=representation' },
-      body: JSON.stringify(data),
-    });
-    return response.ok;
+    const result = await supabaseMutate('PATCH', `dispersions?id=eq.${id}`, data);
+    return result.ok;
   } catch {
     return false;
   }
@@ -1024,21 +1074,17 @@ export async function fetchScannerLinks(eventId?: string): Promise<ScannerLinkFu
 
 export async function createScannerLink(data: { event_id: string; label: string; schedule_id?: string }): Promise<ScannerLinkFull | null> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/scanner_links`, {
-      method: 'POST',
-      headers: { ...headers, 'Prefer': 'return=representation' },
-      body: JSON.stringify({
-        event_id: data.event_id,
-        label: data.label,
-        schedule_id: data.schedule_id || null,
-        token: crypto.randomUUID(),
-        is_active: true,
-        scans_count: 0,
-      }),
-    });
-    if (!response.ok) return null;
-    const result = await response.json();
-    return Array.isArray(result) ? result[0] : result;
+    const payload = {
+      event_id: data.event_id,
+      label: data.label,
+      schedule_id: data.schedule_id || null,
+      token: crypto.randomUUID(),
+      is_active: true,
+      scans_count: 0,
+    };
+    const result = await supabaseMutate<ScannerLinkFull[]>('POST', 'scanner_links', payload);
+    if (!result.ok || !result.data) return null;
+    return Array.isArray(result.data) ? result.data[0] : result.data;
   } catch {
     return null;
   }
@@ -1152,12 +1198,8 @@ export async function updatePendingGuestStatus(id: string, status: string, notes
       if (resolvedBy) guests[0]._resolved_by = resolvedBy;
       if (status === 'resolved') guests[0]._resolved_at = new Date().toISOString();
     }
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/pending_guests?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: { ...headers, 'Prefer': 'return=representation' },
-      body: JSON.stringify({ guests }),
-    });
-    return response.ok;
+    const result = await supabaseMutate('PATCH', `pending_guests?id=eq.${id}`, { guests });
+    return result.ok;
   } catch {
     return false;
   }
@@ -1470,16 +1512,9 @@ export async function createCheckinRecord(data: {
   operator_name: string;
 }): Promise<boolean> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/checkins`, {
-      method: 'POST',
-      headers: { ...headers, 'Prefer': 'return=representation' },
-      body: JSON.stringify({
-        ...data,
-        status: 'ok',
-        scanned_at: new Date().toISOString(),
-      }),
-    });
-    return response.ok;
+    const payload = { ...data, status: 'ok', scanned_at: new Date().toISOString() };
+    const result = await supabaseMutate('POST', 'checkins', payload);
+    return result.ok;
   } catch {
     return false;
   }
@@ -1487,16 +1522,9 @@ export async function createCheckinRecord(data: {
 
 export async function markTicketUsed(ticketId: string): Promise<boolean> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/tickets?id=eq.${ticketId}`, {
-      method: 'PATCH',
-      headers: { ...headers, 'Prefer': 'return=representation' },
-      body: JSON.stringify({
-        status: 'used',
-        used_at: new Date().toISOString(),
-        checked_in_at: new Date().toISOString(),
-      }),
-    });
-    return response.ok;
+    const payload = { status: 'used', used_at: new Date().toISOString(), checked_in_at: new Date().toISOString() };
+    const result = await supabaseMutate('PATCH', `tickets?id=eq.${ticketId}`, payload);
+    return result.ok;
   } catch {
     return false;
   }
