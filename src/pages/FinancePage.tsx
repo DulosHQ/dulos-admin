@@ -338,7 +338,7 @@ export default function FinancePage() {
         for (const schedule of eventSchedules) {
           const scheduleInventory = inventory.filter(inv => inv.schedule_id === schedule.id);
           const sold = scheduleInventory.reduce((sum, inv) => sum + inv.sold, 0);
-          const capacity = scheduleInventory.reduce((sum, inv) => sum + inv.total_capacity, 0);
+          const capacity = scheduleInventory.reduce((sum, inv) => sum + (inv.sold + inv.available), 0);
           
           // Calculate revenue for this schedule
           const scheduleOrders = eventOrders.filter(o => o.schedule_id === schedule.id);

@@ -1060,11 +1060,9 @@ export interface ScheduleInventory {
   id: string;
   schedule_id: string;
   zone_id: string;
-  total_capacity: number;
   sold: number;
   reserved: number;
   available: number;
-  created_at: string;
   updated_at: string;
 }
 
@@ -1207,7 +1205,7 @@ export async function fetchWarRoomKPIs(): Promise<WarRoomKPIs> {
     const [events, schedules, orders, dispersions] = await Promise.all([
       supabaseFetch<DulosEvent[]>('events?status=eq.active'),
       supabaseFetch<Schedule[]>(`schedules?date=gte.${today}&status=eq.active`),
-      supabaseFetch<Order[]>('orders?payment_status=in.(completed,paid)'),
+      supabaseFetch<Order[]>('orders?payment_status=eq.completed'),
       fetchDispersions(),
     ]);
 
@@ -1231,7 +1229,7 @@ export async function fetchWarRoomKPIs(): Promise<WarRoomKPIs> {
           eventOccupancies[schedule.event_id] = { sold: 0, capacity: 0 };
         }
         eventOccupancies[schedule.event_id].sold += inv.sold;
-        eventOccupancies[schedule.event_id].capacity += inv.total_capacity;
+        eventOccupancies[schedule.event_id].capacity += (inv.sold + inv.available);
       }
     });
 
@@ -1267,7 +1265,7 @@ export async function fetchWarRoomEvents(): Promise<WarRoomEvent[]> {
       supabaseFetch<DulosEvent[]>('events?status=eq.active'),
       supabaseFetch<Schedule[]>(`schedules?date=gte.${today}&status=eq.active&order=date.asc`),
       supabaseFetch<ScheduleInventory[]>('schedule_inventory'),
-      supabaseFetch<Order[]>('orders?payment_status=in.(completed,paid)'),
+      supabaseFetch<Order[]>('orders?payment_status=eq.completed'),
       fetchDispersions(),
       getVenueMap()
     ]);
@@ -1290,7 +1288,7 @@ export async function fetchWarRoomEvents(): Promise<WarRoomEvent[]> {
         const nextInv = inventory.filter(inv => inv.schedule_id === nextSchedule.id);
         nextInv.forEach(inv => {
           totalSold += inv.sold;
-          totalCapacity += inv.total_capacity;
+          totalCapacity += (inv.sold + inv.available);
         });
       }
 
@@ -1401,7 +1399,7 @@ export async function fetchWarRoomEvents(): Promise<WarRoomEvent[]> {
 export async function fetchWarRoomActivity(): Promise<WarRoomActivity[]> {
   try {
     const [orders, checkins, events] = await Promise.all([
-      supabaseFetch<Order[]>('orders?payment_status=in.(completed,paid)&order=purchased_at.desc&limit=50'),
+      supabaseFetch<Order[]>('orders?payment_status=eq.completed&order=purchased_at.desc&limit=50'),
       supabaseFetch<Checkin[]>('checkins?order=scanned_at.desc&limit=20'),
       fetchAllEvents()
     ]);

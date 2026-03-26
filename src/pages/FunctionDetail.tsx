@@ -77,7 +77,7 @@ export default function FunctionDetail({
           // Use schedule_inventory for per-function data
           inventory.forEach((si: ScheduleInventory) => {
             const tz = zoneMap.get(si.zone_id);
-            const cap = si.total_capacity || si.sold + si.available || 0;
+            const cap = (si.sold + si.available) || 0;
             const sold = si.sold || 0;
             const avail = si.available || 0;
             
