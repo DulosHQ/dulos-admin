@@ -218,10 +218,7 @@ function CreateVenueModal({ open, onClose, onCreated }: { open: boolean; onClose
             <div><label className={lblCls}>Timezone</label><select className={inpCls} value={form.timezone} onChange={e => upd('timezone', e.target.value)}>{TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.replace('America/', '')}</option>)}</select></div>
             <div><label className={lblCls}>Capacidad</label><input type="number" className={inpCls} value={form.capacity} onChange={e => upd('capacity', e.target.value)} /></div>
           </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="has_seatmap" checked={form.has_seatmap} onChange={e => upd('has_seatmap', e.target.checked)} className="accent-[#EF4444]" />
-            <label htmlFor="has_seatmap" className="text-sm text-gray-300">Tiene asientos numerados (seatmap)</label>
-          </div>
+          <p className="text-xs text-gray-500">💡 ¿Tiene asientos numerados? Agrégalos después en Venues → Secciones (tipo: reserved)</p>
           <div><label className={lblCls}>Google Maps URL</label><input className={inpCls} value={form.maps_url} onChange={e => upd('maps_url', e.target.value)} placeholder="https://maps.google.com/..." /></div>
         </div>
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-800">
@@ -359,7 +356,7 @@ function VenueDetail({ venue: initialVenue, onBack, onVenueUpdated }: { venue: V
           <p className="text-sm text-gray-400">{[venue.city, venue.state].filter(Boolean).join(', ')} · {venue.timezone}</p>
         </div>
         <div className="flex items-center gap-3">
-          {venue.has_seatmap && seats.length > 0 && (
+          {sections.some(s => s.section_type === 'reserved') && seats.length > 0 && (
             <button onClick={() => setShowMapper(true)}
               className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
               🗺️ Mapear asientos
