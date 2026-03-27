@@ -28,7 +28,7 @@ interface VenueSection { id: string; name: string; slug: string; section_type: s
 
 interface ZoneForm {
   zone_name: string; zone_type: 'ga' | 'reserved'; price: number; original_price: number;
-  total_capacity: number; color: string; has_2x1: boolean;
+  total_capacity: number; color: string; has_2x1: boolean; venue_section_ids: string[];
 }
 interface ScheduleForm {
   date: string; start_time: string; end_time: string; total_capacity: number;
@@ -107,7 +107,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
 
   // Step 3: Zones
   const [zones, setZones] = useState<ZoneForm[]>([
-    { zone_name: 'General', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[0], has_2x1: false },
+    { zone_name: 'General', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[0], has_2x1: false, venue_section_ids: [] },
   ]);
 
   // Step 4: Organizer & Commission
@@ -188,7 +188,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
     setStep(1); setError(''); setWarnings([]); setSubmitting(false); setSlugEdited(false);
     setSeoTitleEdited(false); setSeoDescEdited(false);
     setEv({ name: '', slug: '', venue_id: '', category: 'teatro', description: '', long_description: '', quote: '', image_url: '', poster_url: '', card_url: '', seo_title: '', seo_description: '', show_remaining: false, featured: false, sort_order: 0 });
-    setZones([{ zone_name: 'General', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[0], has_2x1: false }]);
+    setZones([{ zone_name: 'General', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[0], has_2x1: false, venue_section_ids: [] }]);
     setSchedules([{ date: '', start_time: '20:00', end_time: '', total_capacity: 0, staff_pin: rPin(), staff_phone: '', staff_email: '' }]);
     setCommRate(15); setDurationMin(90); setShowRecHelper(false);
     setOrgName(''); setOrgPhone('5573933510'); setOrgEmail('paolo@dulos.io');
@@ -278,9 +278,10 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
           zone_type: z.zone_type,
           price: z.price,
           original_price: z.original_price || null,
-          total_capacity: z.zone_type === 'ga' ? z.total_capacity : z.total_capacity,
+          total_capacity: z.total_capacity,
           color: z.color,
           has_2x1: z.has_2x1,
+          venue_section_ids: z.venue_section_ids.length > 0 ? z.venue_section_ids : undefined,
         })),
         schedules: schedules.map(s => ({
           date: s.date,
@@ -509,14 +510,68 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                       </div>
                     )}
                   </div>
+                  {/* ─── Venue Sections Selector ─── */}
+                  {venueSections.length > 0 && (() => {
+                    // Compute which sections are assigned to OTHER zones
+                    const assignedByOther = new Map<string, string>();
+                    zones.forEach((oz, oi) => {
+                      if (oi === i) return;
+                      oz.venue_section_ids.forEach(sid => assignedByOther.set(sid, oz.zone_name || `Zona ${oi + 1}`));
+                    });
+                    // Filter sections by type match
+                    const matchingSections = venueSections.filter(vs =>
+                      z.zone_type === 'reserved' ? vs.section_type === 'reserved' : vs.section_type === 'ga'
+                    );
+                    if (matchingSections.length === 0) return null;
+                    return (
+                      <div className="mb-3">
+                        <label className={lblCls}>Secciones del venue</label>
+                        <div className="space-y-1.5 mt-1">
+                          {matchingSections.map(vs => {
+                            const isAssigned = assignedByOther.has(vs.id);
+                            const isChecked = z.venue_section_ids.includes(vs.id);
+                            return (
+                              <label key={vs.id} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
+                                isAssigned ? 'border-gray-800 bg-gray-900/30 text-gray-600 cursor-not-allowed' :
+                                isChecked ? 'border-gray-600 bg-gray-800/50 text-white' :
+                                'border-gray-800 bg-gray-900/50 text-gray-400 hover:border-gray-700'
+                              }`}>
+                                <input type="checkbox" className="accent-red-500 w-3.5 h-3.5"
+                                  checked={isChecked} disabled={isAssigned}
+                                  onChange={e => {
+                                    const checked = e.target.checked;
+                                    setZones(zs => zs.map((x, j) => {
+                                      if (j !== i) return x;
+                                      const newIds = checked
+                                        ? [...x.venue_section_ids, vs.id]
+                                        : x.venue_section_ids.filter(id => id !== vs.id);
+                                      // Auto-compute capacity from selected sections
+                                      const newCap = newIds.reduce((sum, sid) => {
+                                        const sec = venueSections.find(s => s.id === sid);
+                                        return sum + (sec?.capacity || 0);
+                                      }, 0);
+                                      return { ...x, venue_section_ids: newIds, total_capacity: newCap || x.total_capacity };
+                                    }));
+                                  }}
+                                />
+                                <span>{vs.name}</span>
+                                <span className="text-gray-600 ml-auto">{vs.capacity} asientos</span>
+                                {isAssigned && <span className="text-gray-600 text-[10px]">(→ {assignedByOther.get(vs.id)})</span>}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div><label className={lblCls}>Precio *</label><input type="number" className={inpCls} value={z.price || ''} min={0} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, price: Number(e.target.value) } : x))}/></div>
                     <div><label className={lblCls}>Precio original</label><input type="number" className={inpCls} value={z.original_price || ''} min={0} placeholder="Tachado" onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, original_price: Number(e.target.value) } : x))}/></div>
                     <div>
-                      <label className={lblCls}>Capacidad {z.zone_type === 'reserved' ? '(mapeo)' : '*'}</label>
+                      <label className={lblCls}>Capacidad {z.venue_section_ids.length > 0 ? '(auto)' : z.zone_type === 'reserved' ? '(mapeo)' : '*'}</label>
                       <input type="number" className={inpCls} value={z.total_capacity || ''} min={1}
-                        disabled={z.zone_type === 'reserved'}
-                        placeholder={z.zone_type === 'reserved' ? 'Se calcula del mapeo' : ''}
+                        disabled={z.venue_section_ids.length > 0 || z.zone_type === 'reserved'}
+                        placeholder={z.venue_section_ids.length > 0 ? 'Suma de secciones' : z.zone_type === 'reserved' ? 'Se calcula del mapeo' : ''}
                         onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, total_capacity: Number(e.target.value) } : x))}/>
                     </div>
                     <div>
@@ -528,7 +583,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                   </div>
                 </div>
               ))}
-              <button onClick={() => setZones(zs => [...zs, { zone_name: '', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[zs.length % ZONE_COLORS.length], has_2x1: false }])} className="w-full py-2.5 rounded-lg border border-dashed border-gray-700 text-sm text-gray-400 hover:text-white hover:border-gray-500 transition-colors">+ Agregar zona</button>
+              <button onClick={() => setZones(zs => [...zs, { zone_name: '', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[zs.length % ZONE_COLORS.length], has_2x1: false, venue_section_ids: [] }])} className="w-full py-2.5 rounded-lg border border-dashed border-gray-700 text-sm text-gray-400 hover:text-white hover:border-gray-500 transition-colors">+ Agregar zona</button>
 
               {/* Capacity check */}
               <div className="text-xs text-gray-500 flex justify-between px-1">
@@ -613,10 +668,13 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                         <span className="text-white">{z.zone_name}</span>
                         <span className="text-gray-600">({z.zone_type})</span>
                       </div>
-                      <div className="text-gray-400">
+                      <div className="text-gray-400 text-right">
                         {fmt(z.price)}
                         {z.original_price > 0 && <span className="line-through text-gray-600 ml-1">{fmt(z.original_price)}</span>}
                         <span className="ml-2">{z.total_capacity} bol.</span>
+                        {z.venue_section_ids.length > 0 && (
+                          <span className="ml-2 text-gray-600">({z.venue_section_ids.length} secc.)</span>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -38,6 +38,7 @@ interface ZoneInput {
   total_capacity: number;
   color: string;
   has_2x1: boolean;
+  venue_section_ids?: string[];
 }
 
 interface ScheduleInput {
@@ -94,6 +95,13 @@ export async function POST(req: NextRequest) {
     // Validate schedules
     for (const s of input.schedules) {
       if (!s.date || !s.start_time) return NextResponse.json({ error: 'Cada función necesita fecha y hora' }, { status: 400 });
+    }
+
+    // Validate no duplicate venue_section_ids across zones
+    const allSectionIds = input.zones.flatMap(z => z.venue_section_ids || []);
+    const sectionIdSet = new Set(allSectionIds);
+    if (allSectionIds.length !== sectionIdSet.size) {
+      return NextResponse.json({ error: 'Una sección del venue está asignada a más de una zona' }, { status: 400 });
     }
 
     // Check slug uniqueness
@@ -172,9 +180,10 @@ export async function POST(req: NextRequest) {
       });
       created.push({ table: 'events', filter: `id=eq.${event.id}` });
 
-      // 2. INSERT ticket_zones
+      // 2. INSERT ticket_zones + zone_sections
       const createdZones: { id: string; total_capacity: number; zone_type: string }[] = [];
-      for (const z of input.zones) {
+      for (let zi = 0; zi < input.zones.length; zi++) {
+        const z = input.zones[zi];
         const zone = await supaInsert<{ id: string; total_capacity: number }>('ticket_zones', {
           event_id: event.id,
           zone_name: z.zone_name,
@@ -189,6 +198,17 @@ export async function POST(req: NextRequest) {
         });
         createdZones.push({ ...zone, zone_type: z.zone_type, total_capacity: z.total_capacity });
         created.push({ table: 'ticket_zones', filter: `id=eq.${zone.id}` });
+
+        // Insert zone_sections if venue_section_ids provided
+        if (z.venue_section_ids && z.venue_section_ids.length > 0) {
+          for (const venueSectionId of z.venue_section_ids) {
+            const zs = await supaInsert<{ id: string }>('zone_sections', {
+              zone_id: zone.id,
+              venue_section_id: venueSectionId,
+            });
+            created.push({ table: 'zone_sections', filter: `id=eq.${zs.id}` });
+          }
+        }
       }
 
       // 3. INSERT schedules
@@ -234,6 +254,7 @@ export async function POST(req: NextRequest) {
       created.push({ table: 'event_commissions', filter: `event_id=eq.${event.id}` });
 
       // Success summary
+      const totalZoneSections = input.zones.reduce((sum, z) => sum + (z.venue_section_ids?.length || 0), 0);
       return NextResponse.json({
         success: true,
         event_id: event.id,
@@ -242,6 +263,7 @@ export async function POST(req: NextRequest) {
           zones: createdZones.length,
           schedules: createdSchedules.length,
           inventory_rows: createdSchedules.length * createdZones.length,
+          zone_sections: totalZoneSections,
           commission: input.commission_rate,
           status: input.status,
         },
