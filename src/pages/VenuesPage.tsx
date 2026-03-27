@@ -11,6 +11,7 @@ import {
   VenueSection,
   VenueSeat,
 } from '../lib/supabase';
+import SeatMapperPage from './SeatMapperPage';
 
 /* ─── Helpers ─── */
 const slugify = (s: string) =>
@@ -248,6 +249,7 @@ function VenueDetail({ venue: initialVenue, onBack, onVenueUpdated }: { venue: V
   const [editingInfo, setEditingInfo] = useState(false);
   const [infoForm, setInfoForm] = useState<VenueFormData>(venueToForm(initialVenue));
   const [uploadingSvg, setUploadingSvg] = useState(false);
+  const [showMapper, setShowMapper] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -341,6 +343,10 @@ function VenueDetail({ venue: initialVenue, onBack, onVenueUpdated }: { venue: V
     { id: 'asientos', label: `Asientos (${seats.length})` },
   ];
 
+  if (showMapper) {
+    return <SeatMapperPage venueId={venue.id} venueName={venue.name} onBack={() => setShowMapper(false)} />;
+  }
+
   return (
     <div>
       {/* Header */}
@@ -352,7 +358,13 @@ function VenueDetail({ venue: initialVenue, onBack, onVenueUpdated }: { venue: V
           <h2 className="text-xl font-bold text-white">{venue.name}</h2>
           <p className="text-sm text-gray-400">{[venue.city, venue.state].filter(Boolean).join(', ')} · {venue.timezone}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {venue.has_seatmap && seats.length > 0 && (
+            <button onClick={() => setShowMapper(true)}
+              className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
+              🗺️ Mapear asientos
+            </button>
+          )}
           <SeatmapBadge has={venue.has_seatmap || false} />
           {venue.capacity && <span className="text-xs text-gray-400">{venue.capacity} cap</span>}
         </div>
