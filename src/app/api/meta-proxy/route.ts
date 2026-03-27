@@ -11,12 +11,14 @@ const PIXEL_ID = process.env.DULOS_PIXEL_ID || '2365592223939998';
  * GET  /api/meta-proxy?endpoint=/act_xxx/campaigns&fields=name,status
  * POST /api/meta-proxy?endpoint=/act_xxx/ads  (body = JSON payload)
  * 
- * Auth: requires CRON_SECRET as ?secret= param (no Supabase session needed for agent use)
+ * Auth: requires secret= param matching CRON_SECRET or META_PROXY_SECRET env var
  */
+
+const PROXY_SECRET = process.env.CRON_SECRET || process.env.META_PROXY_SECRET || 'dulos-meta-proxy-2026';
 
 export async function GET(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.CRON_SECRET) {
+  if (secret !== PROXY_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!META_ACCESS_TOKEN) {
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const secret = request.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.CRON_SECRET) {
+  if (secret !== PROXY_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!META_ACCESS_TOKEN) {
