@@ -140,9 +140,104 @@ function SectionForm({ initial, onSave, onCancel, saving }: {
    VENUE DETAIL
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ─── Venue Form (Create/Edit) ─── */
+const TIMEZONES = ['America/Mexico_City', 'America/Monterrey', 'America/Cancun', 'America/Chihuahua', 'America/Tijuana', 'America/Hermosillo', 'America/Mazatlan'];
+const inpCls = 'w-full rounded-lg border border-gray-700 bg-[#1a1a1a] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-[#EF4444] focus:outline-none';
+const lblCls = 'block text-xs text-gray-400 mb-1';
+
+interface VenueFormData {
+  name: string; slug: string; address: string; city: string; state: string;
+  postal_code: string; timezone: string; capacity: string; has_seatmap: boolean;
+  latitude: string; longitude: string; maps_url: string;
+}
+
+function emptyVenueForm(): VenueFormData {
+  return { name: '', slug: '', address: '', city: '', state: '', postal_code: '', timezone: 'America/Mexico_City', capacity: '', has_seatmap: false, latitude: '', longitude: '', maps_url: '' };
+}
+
+function venueToForm(v: Venue): VenueFormData {
+  return {
+    name: v.name, slug: v.slug, address: v.address || '', city: v.city || '',
+    state: v.state || '', postal_code: v.postal_code || '', timezone: v.timezone,
+    capacity: v.capacity ? String(v.capacity) : '', has_seatmap: v.has_seatmap || false,
+    latitude: v.latitude ? String(v.latitude) : '', longitude: v.longitude ? String(v.longitude) : '',
+    maps_url: v.maps_url || '',
+  };
+}
+
+function CreateVenueModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState<VenueFormData>(emptyVenueForm());
+  const [saving, setSaving] = useState(false);
+  const upd = (k: keyof VenueFormData, v: string | boolean) => {
+    const next = { ...form, [k]: v };
+    if (k === 'name' && typeof v === 'string') next.slug = slugify(v);
+    setForm(next);
+  };
+
+  useEffect(() => { if (open) setForm(emptyVenueForm()); }, [open]);
+
+  const handleCreate = async () => {
+    if (!form.name || !form.slug) return;
+    setSaving(true);
+    try {
+      await supabaseMutate('POST', 'venues', undefined, {
+        name: form.name, slug: form.slug, address: form.address || null,
+        city: form.city || null, state: form.state || null, postal_code: form.postal_code || null,
+        timezone: form.timezone, capacity: form.capacity ? parseInt(form.capacity) : null,
+        has_seatmap: form.has_seatmap, country: 'México',
+        latitude: form.latitude ? parseFloat(form.latitude) : null,
+        longitude: form.longitude ? parseFloat(form.longitude) : null,
+        maps_url: form.maps_url || null,
+      });
+      toast.success(`Venue "${form.name}" creado`);
+      onCreated();
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || 'Error creating venue');
+    } finally { setSaving(false); }
+  };
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0f0f0f] border border-gray-800 shadow-2xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-white">Nuevo Venue</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-white">✕</button>
+        </div>
+        <div className="space-y-3">
+          <div><label className={lblCls}>Nombre *</label><input className={inpCls} value={form.name} onChange={e => upd('name', e.target.value)} placeholder="Teatro Metropolitano" /></div>
+          <div><label className={lblCls}>Slug</label><input className={inpCls} value={form.slug} onChange={e => upd('slug', e.target.value)} /></div>
+          <div><label className={lblCls}>Dirección</label><input className={inpCls} value={form.address} onChange={e => upd('address', e.target.value)} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={lblCls}>Ciudad</label><input className={inpCls} value={form.city} onChange={e => upd('city', e.target.value)} /></div>
+            <div><label className={lblCls}>Estado</label><input className={inpCls} value={form.state} onChange={e => upd('state', e.target.value)} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={lblCls}>Timezone</label><select className={inpCls} value={form.timezone} onChange={e => upd('timezone', e.target.value)}>{TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.replace('America/', '')}</option>)}</select></div>
+            <div><label className={lblCls}>Capacidad</label><input type="number" className={inpCls} value={form.capacity} onChange={e => upd('capacity', e.target.value)} /></div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="has_seatmap" checked={form.has_seatmap} onChange={e => upd('has_seatmap', e.target.checked)} className="accent-[#EF4444]" />
+            <label htmlFor="has_seatmap" className="text-sm text-gray-300">Tiene asientos numerados (seatmap)</label>
+          </div>
+          <div><label className={lblCls}>Google Maps URL</label><input className={inpCls} value={form.maps_url} onChange={e => upd('maps_url', e.target.value)} placeholder="https://maps.google.com/..." /></div>
+        </div>
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-800">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white">Cancelar</button>
+          <button onClick={handleCreate} disabled={saving || !form.name} className="px-5 py-2 text-sm bg-[#EF4444] text-white rounded-lg hover:bg-red-600 disabled:opacity-40 transition-colors">
+            {saving ? 'Creando...' : 'Crear Venue'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type DetailTab = 'info' | 'secciones' | 'asientos';
 
-function VenueDetail({ venue, onBack }: { venue: Venue; onBack: () => void }) {
+function VenueDetail({ venue: initialVenue, onBack, onVenueUpdated }: { venue: Venue; onBack: () => void; onVenueUpdated: () => void }) {
+  const [venue, setVenue] = useState(initialVenue);
   const [tab, setTab] = useState<DetailTab>('info');
   const [sections, setSections] = useState<VenueSection[]>([]);
   const [seats, setSeats] = useState<VenueSeat[]>([]);
@@ -150,6 +245,9 @@ function VenueDetail({ venue, onBack }: { venue: Venue; onBack: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [infoForm, setInfoForm] = useState<VenueFormData>(venueToForm(initialVenue));
+  const [uploadingSvg, setUploadingSvg] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -280,38 +378,122 @@ function VenueDetail({ venue, onBack }: { venue: Venue; onBack: () => void }) {
           {/* ─── INFO TAB ─── */}
           {tab === 'info' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-[#111] border border-gray-800 rounded-lg p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-white mb-3">Datos del Venue</h3>
-                {([
-                  ['Nombre', venue.name],
-                  ['Slug', venue.slug],
-                  ['Dirección', venue.address || '—'],
-                  ['Ciudad', venue.city || '—'],
-                  ['Estado', venue.state || '—'],
-                  ['Código Postal', venue.postal_code || '—'],
-                  ['Timezone', venue.timezone],
-                  ['Capacidad', venue.capacity ? venue.capacity.toLocaleString() : '—'],
-                  ['Seatmap', venue.has_seatmap ? 'Sí' : 'No'],
-                ] as [string, string][]).map(([label, value]) => (
-                  <div key={label} className="flex justify-between text-sm">
-                    <span className="text-gray-400">{label}</span>
-                    <span className="text-white font-mono">{value}</span>
+              <div className="bg-[#111] border border-gray-800 rounded-lg p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-white">Datos del Venue</h3>
+                  {!editingInfo ? (
+                    <button onClick={() => { setInfoForm(venueToForm(venue)); setEditingInfo(true); }}
+                      className="text-xs text-gray-400 hover:text-[#EF4444] transition-colors">✏️ Editar</button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button onClick={async () => {
+                        setSaving(true);
+                        try {
+                          await supabaseMutate('PATCH', 'venues', `id=eq.${venue.id}`, {
+                            name: infoForm.name, slug: infoForm.slug, address: infoForm.address || null,
+                            city: infoForm.city || null, state: infoForm.state || null,
+                            postal_code: infoForm.postal_code || null, timezone: infoForm.timezone,
+                            capacity: infoForm.capacity ? parseInt(infoForm.capacity) : null,
+                            has_seatmap: infoForm.has_seatmap,
+                            latitude: infoForm.latitude ? parseFloat(infoForm.latitude) : null,
+                            longitude: infoForm.longitude ? parseFloat(infoForm.longitude) : null,
+                            maps_url: infoForm.maps_url || null,
+                          });
+                          setVenue({
+                            ...venue, name: infoForm.name, slug: infoForm.slug,
+                            address: infoForm.address, city: infoForm.city, state: infoForm.state,
+                            postal_code: infoForm.postal_code, timezone: infoForm.timezone,
+                            capacity: infoForm.capacity ? parseInt(infoForm.capacity) : venue.capacity,
+                            has_seatmap: infoForm.has_seatmap,
+                            latitude: infoForm.latitude ? parseFloat(infoForm.latitude) : venue.latitude,
+                            longitude: infoForm.longitude ? parseFloat(infoForm.longitude) : venue.longitude,
+                            maps_url: infoForm.maps_url,
+                          });
+                          toast.success('Venue actualizado');
+                          setEditingInfo(false);
+                          onVenueUpdated();
+                        } catch (e: any) { toast.error(e.message || 'Error'); }
+                        finally { setSaving(false); }
+                      }} disabled={saving} className="text-xs bg-[#EF4444] text-white px-3 py-1 rounded hover:bg-red-600 disabled:opacity-40">
+                        {saving ? '...' : 'Guardar'}
+                      </button>
+                      <button onClick={() => setEditingInfo(false)} className="text-xs text-gray-400 hover:text-white">Cancelar</button>
+                    </div>
+                  )}
+                </div>
+                {editingInfo ? (
+                  <div className="space-y-3">
+                    <div><label className={lblCls}>Nombre</label><input className={inpCls} value={infoForm.name} onChange={e => setInfoForm(f => ({ ...f, name: e.target.value }))} /></div>
+                    <div><label className={lblCls}>Slug</label><input className={inpCls} value={infoForm.slug} onChange={e => setInfoForm(f => ({ ...f, slug: e.target.value }))} /></div>
+                    <div><label className={lblCls}>Dirección</label><input className={inpCls} value={infoForm.address} onChange={e => setInfoForm(f => ({ ...f, address: e.target.value }))} /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className={lblCls}>Ciudad</label><input className={inpCls} value={infoForm.city} onChange={e => setInfoForm(f => ({ ...f, city: e.target.value }))} /></div>
+                      <div><label className={lblCls}>Estado</label><input className={inpCls} value={infoForm.state} onChange={e => setInfoForm(f => ({ ...f, state: e.target.value }))} /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label className={lblCls}>Timezone</label><select className={inpCls} value={infoForm.timezone} onChange={e => setInfoForm(f => ({ ...f, timezone: e.target.value }))}>{TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.replace('America/', '')}</option>)}</select></div>
+                      <div><label className={lblCls}>Capacidad</label><input type="number" className={inpCls} value={infoForm.capacity} onChange={e => setInfoForm(f => ({ ...f, capacity: e.target.value }))} /></div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" checked={infoForm.has_seatmap} onChange={e => setInfoForm(f => ({ ...f, has_seatmap: e.target.checked }))} className="accent-[#EF4444]" />
+                      <span className="text-sm text-gray-300">Asientos numerados (seatmap)</span>
+                    </div>
+                    <div><label className={lblCls}>Google Maps URL</label><input className={inpCls} value={infoForm.maps_url} onChange={e => setInfoForm(f => ({ ...f, maps_url: e.target.value }))} /></div>
                   </div>
-                ))}
-                {venue.maps_url && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Google Maps</span>
-                    <a href={venue.maps_url} target="_blank" rel="noopener" className="text-[#EF4444] hover:underline text-xs">Abrir ↗</a>
+                ) : (
+                  <div className="space-y-3">
+                    {([
+                      ['Nombre', venue.name], ['Slug', venue.slug],
+                      ['Dirección', venue.address || '—'], ['Ciudad', venue.city || '—'],
+                      ['Estado', venue.state || '—'], ['C.P.', venue.postal_code || '—'],
+                      ['Timezone', venue.timezone],
+                      ['Capacidad', venue.capacity ? venue.capacity.toLocaleString() : '—'],
+                      ['Seatmap', venue.has_seatmap ? 'Sí' : 'No'],
+                    ] as [string, string][]).map(([label, value]) => (
+                      <div key={label} className="flex justify-between text-sm">
+                        <span className="text-gray-400">{label}</span>
+                        <span className="text-white font-mono">{value}</span>
+                      </div>
+                    ))}
+                    {venue.maps_url && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Maps</span>
+                        <a href={venue.maps_url} target="_blank" rel="noopener" className="text-[#EF4444] hover:underline text-xs">Abrir ↗</a>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
               <div className="bg-[#111] border border-gray-800 rounded-lg p-5">
-                <h3 className="text-sm font-semibold text-white mb-3">Mapa SVG</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-white">Mapa SVG</h3>
+                  <label className={`text-xs cursor-pointer transition-colors ${uploadingSvg ? 'text-gray-500' : 'text-[#EF4444] hover:text-red-300'}`}>
+                    {uploadingSvg ? 'Subiendo...' : '📁 Subir SVG'}
+                    <input type="file" accept=".svg" className="hidden" disabled={uploadingSvg} onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploadingSvg(true);
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        fd.append('venueSlug', venue.slug);
+                        const res = await fetch('/api/admin/upload-svg', { method: 'POST', body: fd });
+                        if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
+                        const { url, zones } = await res.json();
+                        await supabaseMutate('PATCH', 'venues', `id=eq.${venue.id}`, { layout_svg_url: url });
+                        setVenue({ ...venue, layout_svg_url: url } as Venue);
+                        toast.success(`SVG subido${zones?.length ? ` — ${zones.length} zonas detectadas: ${zones.join(', ')}` : ''}`);
+                        onVenueUpdated();
+                      } catch (err: any) { toast.error(err.message || 'Error uploading SVG'); }
+                      finally { setUploadingSvg(false); e.target.value = ''; }
+                    }} />
+                  </label>
+                </div>
                 {venue.layout_svg_url ? (
-                  <SvgPreview url={venue.layout_svg_url} className="h-64 w-full" />
+                  <SvgPreview url={venue.layout_svg_url + '?t=' + Date.now()} className="h-64 w-full" />
                 ) : (
-                  <div className="h-64 bg-gray-800/50 rounded flex items-center justify-center text-gray-500 text-sm">
-                    Sin SVG — subir a Supabase Storage y actualizar <code className="text-xs bg-gray-800 px-1 py-0.5 rounded ml-1">layout_svg_url</code>
+                  <div className="h-64 bg-gray-800/50 rounded flex items-center justify-center text-gray-500 text-sm text-center px-4">
+                    Sin SVG — usa el botón &quot;Subir SVG&quot; arriba
                   </div>
                 )}
               </div>
@@ -452,23 +634,21 @@ export default function VenuesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Venue | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [v, sec] = await Promise.all([
-          fetchVenues(),
-          fetchAllVenueSections(),
-        ]);
-        setVenues(v);
-        setAllSections(sec);
-      } catch (e) {
-        toast.error('Error loading venues');
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const loadVenues = useCallback(async () => {
+    try {
+      const [v, sec] = await Promise.all([fetchVenues(), fetchAllVenueSections()]);
+      setVenues(v);
+      setAllSections(sec);
+    } catch (e) {
+      toast.error('Error loading venues');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadVenues(); }, [loadVenues]);
 
   const sectionCounts = useMemo(() => {
     const map = new Map<string, number>();
@@ -486,14 +666,21 @@ export default function VenuesPage() {
   }, [venues, search]);
 
   if (selected) {
-    return <VenueDetail venue={selected} onBack={() => setSelected(null)} />;
+    return <VenueDetail venue={selected} onBack={() => setSelected(null)} onVenueUpdated={loadVenues} />;
   }
 
   return (
     <div>
+      <CreateVenueModal open={showCreate} onClose={() => setShowCreate(false)} onCreated={loadVenues} />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-white">Venues</h1>
-        <span className="text-sm text-gray-400">{venues.length} venues</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-400">{venues.length} venues</span>
+          <button onClick={() => setShowCreate(true)}
+            className="text-xs bg-[#EF4444] text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors font-medium">
+            + Nuevo Venue
+          </button>
+        </div>
       </div>
 
       {/* Search */}
