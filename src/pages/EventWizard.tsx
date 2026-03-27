@@ -1,33 +1,38 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { toast } from 'sonner';
 
 /* ─── Constants ─── */
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const hdrs: Record<string, string> = {
-  'apikey': SUPABASE_KEY,
-  'Authorization': `Bearer ${SUPABASE_KEY}`,
-  'Content-Type': 'application/json',
-  'Prefer': 'return=representation',
-};
-
-const CATEGORIES = ['teatro', 'concierto', 'comedia', 'musical', 'otro'];
-const EVENT_TYPES = ['single', 'recurring', 'multi'];
-const ZONE_TYPES = ['general', 'reserved'];
-const TIMEZONES = [
-  'America/Mexico_City', 'America/Monterrey', 'America/Cancun',
-  'America/Chihuahua', 'America/Tijuana', 'America/Hermosillo', 'America/Mazatlan',
-];
-const STEP_LABELS = ['Venue', 'Evento', 'Zonas', 'Funciones', 'Resumen'];
+const CATEGORIES = ['teatro', 'concierto', 'festival', 'standup', 'comedia', 'musical', 'otro'];
+const ZONE_COLORS = ['#E63946', '#2A7AE8', '#E88D2A', '#10B981', '#8B5CF6', '#EC4899', '#F59E0B', '#06B6D4'];
+const DAYS_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const STEP_LABELS = ['Info', 'Funciones', 'Zonas', 'Comisión', 'Revisión'];
+const fmt = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(n);
 
 /* ─── Types ─── */
-interface VenueOption { id: string; name: string; address: string; city: string; timezone: string; capacity: number; }
-interface NewVenue { name: string; address: string; city: string; timezone: string; capacity: number; }
-interface EventForm { name: string; slug: string; event_type: string; start_date: string; end_date: string; price_from: number; image_url: string; category: string; description: string; status: string; }
-interface ZoneForm { zone_name: string; zone_type: string; price: number; total_capacity: number; }
-interface FuncForm { date: string; start_time: string; end_time: string; total_capacity: number; staff_pin: string; staff_phone: string; staff_email: string; }
+interface Venue {
+  id: string; name: string; slug: string; address: string; city: string; state: string;
+  timezone: string; capacity: number; has_seatmap: boolean; layout_svg_url: string | null;
+}
+interface VenueSection { id: string; name: string; slug: string; section_type: string; capacity: number; }
+
+interface ZoneForm {
+  zone_name: string; zone_type: 'ga' | 'reserved'; price: number; original_price: number;
+  total_capacity: number; color: string; has_2x1: boolean;
+}
+interface ScheduleForm {
+  date: string; start_time: string; end_time: string; total_capacity: number;
+  staff_pin: string; staff_phone: string; staff_email: string;
+}
+interface EventForm {
+  name: string; slug: string; venue_id: string; category: string;
+  description: string; long_description: string; quote: string;
+  image_url: string; poster_url: string; card_url: string;
+  seo_title: string; seo_description: string;
+  show_remaining: boolean; featured: boolean; sort_order: number;
+}
+
 interface Props { open: boolean; onClose: () => void; onCreated: () => void; }
 
 /* ─── Helpers ─── */
@@ -35,134 +40,281 @@ function slugify(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 function rPin(): string { return String(Math.floor(100000 + Math.random() * 900000)); }
-const fmt = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(n);
 
-async function supaPost<T>(table: string, data: unknown): Promise<T> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, { method: 'POST', headers: hdrs, body: JSON.stringify(data) });
-  if (!res.ok) { const b = await res.text().catch(() => ''); throw new Error(`POST ${table}: ${res.status} ${b}`); }
-  const j = await res.json();
-  return Array.isArray(j) ? j[0] : j;
+async function proxyFetch<T>(path: string, query?: string): Promise<T> {
+  const params = new URLSearchParams();
+  params.set('path', path);
+  if (query) {
+    const qs = new URLSearchParams(query);
+    qs.forEach((v, k) => params.set(k, v));
+  }
+  const res = await fetch(`/api/supabase-proxy?${params.toString()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Fetch error: ${res.status}`);
+  return res.json();
 }
 
 /* ─── Styles ─── */
-const inpCls = 'w-full rounded-lg border border-[#333] bg-[#1a1a1a] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500';
+const inpCls = 'w-full rounded-lg border border-gray-700 bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#EF4444] focus:outline-none transition-colors';
 const lblCls = 'block text-xs text-gray-400 mb-1';
+const cardCls = 'bg-[#111] rounded-xl p-4 border border-gray-800';
 
-/* ═══ COMPONENT ═══ */
+/* ═══════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════ */
 export default function EventWizard({ open, onClose, onCreated }: Props) {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [warnings, setWarnings] = useState<string[]>([]);
 
-  // Step 1
-  const [venues, setVenues] = useState<VenueOption[]>([]);
-  const [venueId, setVenueId] = useState('');
-  const [createNew, setCreateNew] = useState(false);
-  const [nv, setNv] = useState<NewVenue>({ name: '', address: '', city: '', timezone: 'America/Mexico_City', capacity: 200 });
+  // Venues
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [venueSections, setVenueSections] = useState<VenueSection[]>([]);
 
-  // Step 2
-  const [ev, setEv] = useState<EventForm>({ name: '', slug: '', event_type: 'single', start_date: '', end_date: '', price_from: 0, image_url: '', category: 'teatro', description: '', status: 'active' });
+  // Step 1: Event Info
+  const [ev, setEv] = useState<EventForm>({
+    name: '', slug: '', venue_id: '', category: 'teatro',
+    description: '', long_description: '', quote: '',
+    image_url: '', poster_url: '', card_url: '',
+    seo_title: '', seo_description: '',
+    show_remaining: false, featured: false, sort_order: 0,
+  });
   const [slugEdited, setSlugEdited] = useState(false);
+  const [seoTitleEdited, setSeoTitleEdited] = useState(false);
+  const [seoDescEdited, setSeoDescEdited] = useState(false);
 
-  // Step 3
-  const [zones, setZones] = useState<ZoneForm[]>([{ zone_name: 'General', zone_type: 'general', price: 0, total_capacity: 100 }]);
+  // Step 2: Schedules
+  const [schedules, setSchedules] = useState<ScheduleForm[]>([
+    { date: '', start_time: '20:00', end_time: '', total_capacity: 0, staff_pin: rPin(), staff_phone: '', staff_email: '' },
+  ]);
+  const [durationMin, setDurationMin] = useState(90);
 
-  // Step 4
-  const [funcs, setFuncs] = useState<FuncForm[]>([{ date: '', start_time: '20:00', end_time: '22:00', total_capacity: 0, staff_pin: rPin(), staff_phone: '', staff_email: '' }]);
+  // Recurring helper
+  const [showRecHelper, setShowRecHelper] = useState(false);
+  const [recDay, setRecDay] = useState(6); // Saturday
+  const [recTime, setRecTime] = useState('20:00');
+  const [recFrom, setRecFrom] = useState('');
+  const [recTo, setRecTo] = useState('');
 
-  // Step 5
-  const [commRate, setCommRate] = useState(0.15);
+  // Step 3: Zones
+  const [zones, setZones] = useState<ZoneForm[]>([
+    { zone_name: 'General', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[0], has_2x1: false },
+  ]);
 
-  // Fetch venues
-  useEffect(() => {
-    if (!open) return;
-    fetch(`${SUPABASE_URL}/rest/v1/venues?order=name.asc`, { headers: hdrs }).then(r => r.json()).then(d => setVenues(d)).catch(() => setVenues([]));
-  }, [open]);
+  // Step 4: Commission & Config
+  const [commRate, setCommRate] = useState(15);
 
   // Selected venue
-  const selVenue = useMemo(() => {
-    if (createNew) return { name: nv.name, address: nv.address, city: nv.city, timezone: nv.timezone, capacity: nv.capacity };
-    return venues.find(v => v.id === venueId) || null;
-  }, [venueId, createNew, nv, venues]);
-
-  // Auto-slug
-  useEffect(() => { if (!slugEdited && ev.name) setEv(p => ({ ...p, slug: slugify(p.name) })); }, [ev.name, slugEdited]);
-
-  // Auto capacity from venue
-  useEffect(() => {
-    if (selVenue) setFuncs(p => p.map(f => f.total_capacity === 0 ? { ...f, total_capacity: selVenue.capacity } : f));
-  }, [selVenue]);
-
-  // Reset
-  useEffect(() => {
-    if (!open) {
-      setStep(1); setError(''); setSubmitting(false); setVenueId(''); setCreateNew(false);
-      setNv({ name: '', address: '', city: '', timezone: 'America/Mexico_City', capacity: 200 });
-      setEv({ name: '', slug: '', event_type: 'single', start_date: '', end_date: '', price_from: 0, image_url: '', category: 'teatro', description: '', status: 'active' });
-      setSlugEdited(false);
-      setZones([{ zone_name: 'General', zone_type: 'general', price: 0, total_capacity: 100 }]);
-      setFuncs([{ date: '', start_time: '20:00', end_time: '22:00', total_capacity: 0, staff_pin: rPin(), staff_phone: '', staff_email: '' }]);
-      setCommRate(0.15);
+  const selVenue = useMemo(() => venues.find(v => v.id === ev.venue_id) || null, [venues, ev.venue_id]);
+  const hasReservedSections = useMemo(() => venueSections.some(s => s.section_type === 'reserved'), [venueSections]);
+  const venueBadge = useMemo(() => {
+    if (!selVenue) return '';
+    if (hasReservedSections) {
+      const hasGA = venueSections.some(s => s.section_type === 'ga') || venueSections.length === 0;
+      return hasGA ? 'Mixto' : 'Reserved';
     }
+    return 'GA';
+  }, [selVenue, hasReservedSections, venueSections]);
+
+  // ─── Load venues ───
+  useEffect(() => {
+    if (!open) return;
+    proxyFetch<Venue[]>('venues', 'order=name.asc').then(setVenues).catch(() => setVenues([]));
   }, [open]);
 
-  // Validation
+  // ─── Load venue sections when venue changes ───
+  useEffect(() => {
+    if (!ev.venue_id) { setVenueSections([]); return; }
+    proxyFetch<VenueSection[]>('venue_sections', `venue_id=eq.${ev.venue_id}&order=sort_order.asc`)
+      .then(setVenueSections)
+      .catch(() => setVenueSections([]));
+  }, [ev.venue_id]);
+
+  // ─── Auto-slug from name + venue ───
+  useEffect(() => {
+    if (slugEdited || !ev.name) return;
+    const venueSlug = selVenue?.slug || '';
+    const base = slugify(ev.name);
+    const full = venueSlug ? `${base}-${venueSlug}` : base;
+    setEv(p => ({ ...p, slug: full }));
+  }, [ev.name, selVenue, slugEdited]);
+
+  // ─── Auto SEO ───
+  useEffect(() => {
+    if (!seoTitleEdited && ev.name) {
+      const venue = selVenue?.name || '';
+      const city = selVenue?.city || '';
+      setEv(p => ({ ...p, seo_title: `${p.name}${venue ? ` | ${venue}` : ''}${city ? ` ${city}` : ''} | Boletos sin comisiones` }));
+    }
+  }, [ev.name, selVenue, seoTitleEdited]);
+
+  useEffect(() => {
+    if (!seoDescEdited && ev.description) {
+      setEv(p => ({ ...p, seo_description: p.description.slice(0, 160) }));
+    }
+  }, [ev.description, seoDescEdited]);
+
+  // ─── Auto end_time from duration ───
+  useEffect(() => {
+    if (!durationMin) return;
+    setSchedules(prev => prev.map(s => {
+      if (!s.start_time) return s;
+      const [h, m] = s.start_time.split(':').map(Number);
+      const total = h * 60 + m + durationMin;
+      const eh = Math.floor(total / 60) % 24;
+      const em = total % 60;
+      return { ...s, end_time: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` };
+    }));
+  }, [durationMin]);
+
+  // ─── Auto capacity from zones ───
+  const totalZoneCapacity = useMemo(() => zones.reduce((s, z) => s + (z.total_capacity || 0), 0), [zones]);
+
+  // ─── Reset on close ───
+  useEffect(() => {
+    if (open) return;
+    setStep(1); setError(''); setWarnings([]); setSubmitting(false); setSlugEdited(false);
+    setSeoTitleEdited(false); setSeoDescEdited(false);
+    setEv({ name: '', slug: '', venue_id: '', category: 'teatro', description: '', long_description: '', quote: '', image_url: '', poster_url: '', card_url: '', seo_title: '', seo_description: '', show_remaining: false, featured: false, sort_order: 0 });
+    setZones([{ zone_name: 'General', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[0], has_2x1: false }]);
+    setSchedules([{ date: '', start_time: '20:00', end_time: '', total_capacity: 0, staff_pin: rPin(), staff_phone: '', staff_email: '' }]);
+    setCommRate(15); setDurationMin(90); setShowRecHelper(false);
+  }, [open]);
+
+  // ─── Generate recurring schedules ───
+  const generateRecurring = () => {
+    if (!recFrom || !recTo) return;
+    const start = new Date(recFrom + 'T12:00:00');
+    const end = new Date(recTo + 'T12:00:00');
+    const newSchedules: ScheduleForm[] = [];
+    const d = new Date(start);
+    while (d <= end) {
+      if (d.getDay() === recDay) {
+        const dateStr = d.toISOString().split('T')[0];
+        const [h, m] = recTime.split(':').map(Number);
+        const total = h * 60 + m + durationMin;
+        const eh = Math.floor(total / 60) % 24;
+        const em = total % 60;
+        newSchedules.push({
+          date: dateStr,
+          start_time: recTime,
+          end_time: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`,
+          total_capacity: 0,
+          staff_pin: rPin(),
+          staff_phone: '',
+          staff_email: '',
+        });
+      }
+      d.setDate(d.getDate() + 1);
+    }
+    if (newSchedules.length > 0) {
+      setSchedules(newSchedules);
+      setShowRecHelper(false);
+      toast.success(`${newSchedules.length} funciones generadas`);
+    } else {
+      toast.error('No se encontraron fechas para el día seleccionado');
+    }
+  };
+
+  // ─── Validation ───
   function canNext(): boolean {
-    if (step === 1) { if (createNew) return !!(nv.name && nv.address && nv.city && nv.capacity > 0); return !!venueId; }
-    if (step === 2) return !!(ev.name && ev.slug && ev.start_date && ev.end_date);
-    if (step === 3) return zones.length > 0 && zones.every(z => z.zone_name && z.price >= 0 && z.total_capacity > 0);
-    if (step === 4) return funcs.length > 0 && funcs.every(f => f.date && f.start_time && f.total_capacity > 0);
+    if (step === 1) return !!(ev.name && ev.venue_id && ev.slug);
+    if (step === 2) return schedules.length > 0 && schedules.every(s => s.date && s.start_time);
+    if (step === 3) return zones.length > 0 && zones.every(z => z.zone_name && z.price > 0 && (z.zone_type === 'reserved' || z.total_capacity > 0));
     return true;
   }
 
-  // Submit
-  async function handleSubmit() {
+  // ─── Compute warnings ───
+  const computeWarnings = useCallback((): string[] => {
+    const w: string[] = [];
+    if (selVenue && !selVenue.layout_svg_url) w.push('El venue no tiene SVG — el evento no mostrará mapa del venue');
+    if (!ev.image_url) w.push('Sin imagen principal — el card del evento se verá vacío');
+    for (const z of zones) {
+      if (z.price > 0 && !z.original_price) {
+        // Not necessarily a warning
+      }
+    }
+    const totalGA = zones.filter(z => z.zone_type === 'ga').reduce((s, z) => s + z.total_capacity, 0);
+    if (selVenue && totalGA > selVenue.capacity) w.push(`Capacidad GA (${totalGA}) excede capacidad del venue (${selVenue.capacity})`);
+    return w;
+  }, [ev, zones, selVenue]);
+
+  // ─── Submit ───
+  async function handleSubmit(status: 'draft' | 'active') {
     setSubmitting(true); setError('');
     try {
-      let fVenueId = venueId;
-      if (createNew) { const v = await supaPost<VenueOption>('venues', nv); fVenueId = v.id; }
+      const payload = {
+        name: ev.name,
+        slug: ev.slug,
+        venue_id: ev.venue_id,
+        category: ev.category,
+        description: ev.description,
+        long_description: ev.long_description,
+        quote: ev.quote,
+        image_url: ev.image_url,
+        poster_url: ev.poster_url,
+        card_url: ev.card_url,
+        seo_title: ev.seo_title,
+        seo_description: ev.seo_description,
+        show_remaining: ev.show_remaining,
+        featured: ev.featured,
+        sort_order: ev.sort_order,
+        status,
+        zones: zones.map(z => ({
+          zone_name: z.zone_name,
+          zone_type: z.zone_type,
+          price: z.price,
+          original_price: z.original_price || null,
+          total_capacity: z.zone_type === 'ga' ? z.total_capacity : z.total_capacity,
+          color: z.color,
+          has_2x1: z.has_2x1,
+        })),
+        schedules: schedules.map(s => ({
+          date: s.date,
+          start_time: s.start_time,
+          end_time: s.end_time || null,
+          total_capacity: s.total_capacity || totalZoneCapacity,
+          staff_pin: s.staff_pin,
+          staff_phone: s.staff_phone || '5573933510',
+          staff_email: s.staff_email || 'paolo@dulos.io',
+        })),
+        commission_rate: commRate / 100,
+        venue_timezone: selVenue?.timezone || 'America/Mexico_City',
+      };
 
-      const created = await supaPost<{ id: string }>('events', { ...ev, venue_id: fVenueId });
-      const eventId = created.id;
+      const res = await fetch('/api/admin/create-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-      const createdZones: { id: string; total_capacity: number }[] = [];
-      for (const z of zones) {
-        const cz = await supaPost<{ id: string; total_capacity: number }>('ticket_zones', { event_id: eventId, zone_name: z.zone_name, zone_type: z.zone_type, price: z.price, total_capacity: z.total_capacity, sold: 0, available: z.total_capacity });
-        createdZones.push(cz);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al crear evento');
 
-      const createdScheds: { id: string }[] = [];
-      for (const f of funcs) {
-        const cs = await supaPost<{ id: string }>('schedules', { event_id: eventId, date: f.date, start_time: f.start_time, end_time: f.end_time, total_capacity: f.total_capacity, staff_pin: f.staff_pin, staff_phone: f.staff_phone || null, staff_email: f.staff_email || null, status: 'active' });
-        createdScheds.push(cs);
-      }
-
-      for (const s of createdScheds) {
-        for (const z of createdZones) {
-          await supaPost('schedule_inventory', { schedule_id: s.id, zone_id: z.id, sold: 0, available: z.total_capacity, reserved: 0 });
-        }
-      }
-
-      await supaPost('event_commissions', { event_id: eventId, commission_rate: commRate });
-
+      toast.success(`✅ Evento creado: ${data.summary.zones} zonas, ${data.summary.schedules} funciones, ${data.summary.inventory_rows} inventario`);
       onCreated();
       onClose();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error al crear evento'); }
-    finally { setSubmitting(false); }
+    } catch (e: any) {
+      setError(e.message || 'Error al crear evento');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (!open) return null;
 
-  /* ─── Render helpers ─── */
+  /* ─── Shared UI helpers ─── */
   const XBtn = ({ onClick }: { onClick: () => void }) => (
-    <button onClick={onClick} className="absolute right-3 top-3 text-gray-500 hover:text-red-400 transition-colors" title="Eliminar">
+    <button onClick={onClick} className="absolute right-3 top-3 text-gray-600 hover:text-red-400 transition-colors" title="Eliminar">
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
   );
 
+  const stepWarnings = step === 5 ? computeWarnings() : [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0f0f0f] border border-[#222] shadow-2xl">
+      <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-[#0a0a0a] border border-gray-800 shadow-2xl">
         {/* Close */}
         <button onClick={onClose} className="absolute right-4 top-4 text-gray-500 hover:text-white transition-colors z-10">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
@@ -171,18 +323,18 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
         {/* Step indicator */}
         <div className="px-6 pt-6 pb-4">
           <h2 className="text-lg font-bold text-white mb-4">Crear Evento</h2>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1 mb-2">
             {STEP_LABELS.map((label, i) => {
               const n = i + 1;
               const active = n === step;
               const done = n < step;
               return (
-                <div key={n} className="flex items-center gap-2 flex-1">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${active ? 'bg-[#E63946] text-white' : done ? 'bg-[#E63946]/30 text-[#E63946]' : 'bg-[#222] text-gray-500'}`}>
+                <div key={n} className="flex items-center gap-1.5 flex-1">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${active ? 'bg-[#EF4444] text-white' : done ? 'bg-[#EF4444]/30 text-[#EF4444]' : 'bg-gray-800 text-gray-500'}`}>
                     {done ? '✓' : n}
                   </div>
                   <span className={`text-xs hidden sm:inline ${active ? 'text-white font-medium' : 'text-gray-500'}`}>{label}</span>
-                  {i < 4 && <div className={`flex-1 h-px mx-1 ${done ? 'bg-[#E63946]/40' : 'bg-[#222]'}`}/>}
+                  {i < STEP_LABELS.length - 1 && <div className={`flex-1 h-px mx-1 ${done ? 'bg-[#EF4444]/40' : 'bg-gray-800'}`}/>}
                 </div>
               );
             })}
@@ -190,175 +342,304 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
         </div>
 
         <div className="px-6 pb-6">
-          {/* ═══ STEP 1: VENUE ═══ */}
+
+          {/* ═══ STEP 1: EVENT INFO ═══ */}
           {step === 1 && (
             <div className="space-y-4">
+              <div><label className={lblCls}>Nombre del evento *</label><input className={inpCls} value={ev.name} onChange={e => setEv(p => ({ ...p, name: e.target.value }))} placeholder="Archivo Confidencial: CÁMARA BLANCA"/></div>
+
               <div>
-                <label className={lblCls}>Venue</label>
-                <select value={createNew ? '__new__' : venueId} onChange={e => { if (e.target.value === '__new__') { setCreateNew(true); setVenueId(''); } else { setCreateNew(false); setVenueId(e.target.value); } }} className={inpCls}>
+                <label className={lblCls}>Venue *</label>
+                <select value={ev.venue_id} onChange={e => setEv(p => ({ ...p, venue_id: e.target.value }))} className={inpCls}>
                   <option value="">— Seleccionar venue —</option>
                   {venues.map(v => <option key={v.id} value={v.id}>{v.name} — {v.city}</option>)}
-                  <option value="__new__">+ Crear nuevo venue</option>
                 </select>
               </div>
-              {createNew && (
-                <div className="space-y-3 bg-[#141414] rounded-xl p-4 border border-[#282828]">
-                  <p className="text-sm font-medium text-white mb-2">Nuevo Venue</p>
-                  <div><label className={lblCls}>Nombre *</label><input className={inpCls} value={nv.name} onChange={e => setNv(v => ({ ...v, name: e.target.value }))} placeholder="Teatro Metropolitano"/></div>
-                  <div><label className={lblCls}>Dirección *</label><input className={inpCls} value={nv.address} onChange={e => setNv(v => ({ ...v, address: e.target.value }))} placeholder="Av. Insurgentes Sur 123"/></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><label className={lblCls}>Ciudad *</label><input className={inpCls} value={nv.city} onChange={e => setNv(v => ({ ...v, city: e.target.value }))} placeholder="CDMX"/></div>
-                    <div><label className={lblCls}>Timezone</label><select className={inpCls} value={nv.timezone} onChange={e => setNv(v => ({ ...v, timezone: e.target.value }))}>{TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.replace('America/', '')}</option>)}</select></div>
+
+              {/* Venue preview */}
+              {selVenue && (
+                <div className={cardCls}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-white">{selVenue.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{[selVenue.address, selVenue.city, selVenue.state].filter(Boolean).join(', ')}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${venueBadge === 'GA' ? 'bg-green-900/50 text-green-400' : venueBadge === 'Reserved' ? 'bg-blue-900/50 text-blue-400' : 'bg-purple-900/50 text-purple-400'}`}>
+                        {venueBadge}
+                      </span>
+                      <span className="text-xs text-gray-500">{selVenue.capacity} cap</span>
+                    </div>
                   </div>
-                  <div><label className={lblCls}>Capacidad *</label><input type="number" className={inpCls} value={nv.capacity} onChange={e => setNv(v => ({ ...v, capacity: Number(e.target.value) }))} min={1}/></div>
+                  {selVenue.layout_svg_url && (
+                    <div className="mt-3 h-20 bg-[#0a0a0a] rounded overflow-hidden flex items-center justify-center">
+                      <img src={selVenue.layout_svg_url} alt="Mapa" className="max-h-full opacity-60"/>
+                    </div>
+                  )}
                 </div>
               )}
-              {selVenue && !createNew && (
-                <div className="bg-[#141414] rounded-xl p-4 border border-[#282828]">
-                  <p className="text-sm font-bold text-white">{selVenue.name}</p>
-                  <p className="text-xs text-gray-400 mt-1">{selVenue.address}</p>
-                  <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                    <span>📍 {selVenue.city}</span>
-                    <span>👤 Cap: {selVenue.capacity}</span>
-                    <span>🕐 {selVenue.timezone?.replace('America/', '')}</span>
-                  </div>
+
+              <div>
+                <label className={lblCls}>Slug (auto)</label>
+                <input className={inpCls} value={ev.slug} onChange={e => { setSlugEdited(true); setEv(p => ({ ...p, slug: e.target.value })); }}/>
+                <p className="text-[10px] text-gray-600 mt-1">Auto: nombre-venue-ciudad. Editable.</p>
+              </div>
+
+              <div>
+                <label className={lblCls}>Categoría *</label>
+                <select className={inpCls} value={ev.category} onChange={e => setEv(p => ({ ...p, category: e.target.value }))}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                </select>
+              </div>
+
+              <div><label className={lblCls}>Descripción corta</label><textarea className={`${inpCls} min-h-[60px] resize-y`} value={ev.description} onChange={e => setEv(p => ({ ...p, description: e.target.value }))} placeholder="Para el card del evento..."/></div>
+
+              <div><label className={lblCls}>Descripción larga</label><textarea className={`${inpCls} min-h-[80px] resize-y`} value={ev.long_description} onChange={e => setEv(p => ({ ...p, long_description: e.target.value }))} placeholder="Para la página del evento..."/></div>
+
+              <div><label className={lblCls}>Quote</label><input className={inpCls} value={ev.quote} onChange={e => setEv(p => ({ ...p, quote: e.target.value }))} placeholder="Frase destacada..."/></div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div><label className={lblCls}>Imagen principal (URL)</label><input className={inpCls} value={ev.image_url} onChange={e => setEv(p => ({ ...p, image_url: e.target.value }))} placeholder="https://..."/></div>
+                <div><label className={lblCls}>Poster (URL)</label><input className={inpCls} value={ev.poster_url} onChange={e => setEv(p => ({ ...p, poster_url: e.target.value }))} placeholder="Vertical, redes"/></div>
+                <div><label className={lblCls}>Card (URL)</label><input className={inpCls} value={ev.card_url} onChange={e => setEv(p => ({ ...p, card_url: e.target.value }))} placeholder="Horizontal, preview"/></div>
+              </div>
+
+              {/* SEO — collapsible */}
+              <details className="group">
+                <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-300 transition-colors">SEO (auto-generado) ▸</summary>
+                <div className="mt-3 space-y-3">
+                  <div><label className={lblCls}>SEO Title</label><input className={inpCls} value={ev.seo_title} onChange={e => { setSeoTitleEdited(true); setEv(p => ({ ...p, seo_title: e.target.value })); }}/></div>
+                  <div><label className={lblCls}>SEO Description</label><textarea className={`${inpCls} min-h-[50px] resize-y`} value={ev.seo_description} onChange={e => { setSeoDescEdited(true); setEv(p => ({ ...p, seo_description: e.target.value })); }}/></div>
                 </div>
-              )}
+              </details>
             </div>
           )}
 
-          {/* ═══ STEP 2: EVENT DETAILS ═══ */}
+          {/* ═══ STEP 2: SCHEDULES ═══ */}
           {step === 2 && (
             <div className="space-y-4">
-              <div><label className={lblCls}>Nombre del evento *</label><input className={inpCls} value={ev.name} onChange={e => setEv(d => ({ ...d, name: e.target.value }))} placeholder="La Casa de Bernarda Alba"/></div>
-              <div>
-                <label className={lblCls}>Slug</label>
-                <input className={inpCls} value={ev.slug} onChange={e => { setSlugEdited(true); setEv(d => ({ ...d, slug: e.target.value })); }} placeholder="la-casa-de-bernarda-alba"/>
-                <p className="text-[10px] text-gray-600 mt-1">Auto-generado del nombre. Editable.</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <label className={lblCls + ' mb-0'}>Duración (min)</label>
+                  <input type="number" className={`${inpCls} w-20`} value={durationMin} onChange={e => setDurationMin(Number(e.target.value))} min={15} step={15}/>
+                </div>
+                <button onClick={() => setShowRecHelper(!showRecHelper)} className="text-xs text-[#EF4444] hover:text-red-300 transition-colors">
+                  {showRecHelper ? 'Cerrar' : '🔄 Generar recurrentes'}
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={lblCls}>Tipo de evento</label><select className={inpCls} value={ev.event_type} onChange={e => setEv(d => ({ ...d, event_type: e.target.value }))}>{EVENT_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select></div>
-                <div><label className={lblCls}>Categoría</label><select className={inpCls} value={ev.category} onChange={e => setEv(d => ({ ...d, category: e.target.value }))}>{CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}</select></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={lblCls}>Fecha inicio *</label><input type="date" className={inpCls} value={ev.start_date} onChange={e => setEv(d => ({ ...d, start_date: e.target.value }))}/></div>
-                <div><label className={lblCls}>Fecha fin *</label><input type="date" className={inpCls} value={ev.end_date} onChange={e => setEv(d => ({ ...d, end_date: e.target.value }))}/></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={lblCls}>Precio desde (MXN)</label><input type="number" className={inpCls} value={ev.price_from} onChange={e => setEv(d => ({ ...d, price_from: Number(e.target.value) }))} min={0}/></div>
-                <div><label className={lblCls}>URL de imagen</label><input className={inpCls} value={ev.image_url} onChange={e => setEv(d => ({ ...d, image_url: e.target.value }))} placeholder="https://..."/></div>
-              </div>
-              <div><label className={lblCls}>Descripción</label><textarea className={`${inpCls} min-h-[80px] resize-y`} value={ev.description} onChange={e => setEv(d => ({ ...d, description: e.target.value }))} placeholder="Descripción del evento..."/></div>
+
+              {/* Recurring helper */}
+              {showRecHelper && (
+                <div className={`${cardCls} space-y-3`}>
+                  <p className="text-xs font-medium text-white">Generar funciones recurrentes</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className={lblCls}>Día</label>
+                      <select className={inpCls} value={recDay} onChange={e => setRecDay(Number(e.target.value))}>
+                        {DAYS_ES.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div><label className={lblCls}>Hora</label><input type="time" className={inpCls} value={recTime} onChange={e => setRecTime(e.target.value)}/></div>
+                    <div><label className={lblCls}>Desde</label><input type="date" className={inpCls} value={recFrom} onChange={e => setRecFrom(e.target.value)}/></div>
+                    <div><label className={lblCls}>Hasta</label><input type="date" className={inpCls} value={recTo} onChange={e => setRecTo(e.target.value)}/></div>
+                  </div>
+                  <button onClick={generateRecurring} className="text-xs bg-[#EF4444] text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
+                    Generar
+                  </button>
+                </div>
+              )}
+
+              {/* Schedule list */}
+              {schedules.map((s, i) => (
+                <div key={i} className={`${cardCls} relative`}>
+                  {schedules.length > 1 && <XBtn onClick={() => setSchedules(ss => ss.filter((_, j) => j !== i))}/>}
+                  <p className="text-xs text-gray-500 font-medium mb-3">
+                    Función {i + 1}
+                    {s.date && <span className="text-gray-600 ml-2">· {DAYS_ES[new Date(s.date + 'T12:00').getDay()]}</span>}
+                    <span className="text-gray-600 ml-2">· PIN: {s.staff_pin}</span>
+                  </p>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div><label className={lblCls}>Fecha *</label><input type="date" className={inpCls} value={s.date} onChange={e => setSchedules(ss => ss.map((x, j) => j === i ? { ...x, date: e.target.value } : x))}/></div>
+                    <div><label className={lblCls}>Hora inicio *</label><input type="time" className={inpCls} value={s.start_time} onChange={e => { const v = e.target.value; setSchedules(ss => ss.map((x, j) => { if (j !== i) return x; const [h, m] = v.split(':').map(Number); const total = h * 60 + m + durationMin; const eh = Math.floor(total / 60) % 24; const em = total % 60; return { ...x, start_time: v, end_time: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` }; })); }}/></div>
+                    <div><label className={lblCls}>Hora fin</label><input type="time" className={inpCls} value={s.end_time} onChange={e => setSchedules(ss => ss.map((x, j) => j === i ? { ...x, end_time: e.target.value } : x))}/></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div><label className={lblCls}>Capacidad</label><input type="number" className={inpCls} value={s.total_capacity || ''} placeholder="auto" onChange={e => setSchedules(ss => ss.map((x, j) => j === i ? { ...x, total_capacity: Number(e.target.value) } : x))}/></div>
+                    <div><label className={lblCls}>Tel. staff</label><input className={inpCls} value={s.staff_phone} placeholder="auto" onChange={e => setSchedules(ss => ss.map((x, j) => j === i ? { ...x, staff_phone: e.target.value } : x))}/></div>
+                    <div><label className={lblCls}>Email staff</label><input type="email" className={inpCls} value={s.staff_email} placeholder="auto" onChange={e => setSchedules(ss => ss.map((x, j) => j === i ? { ...x, staff_email: e.target.value } : x))}/></div>
+                  </div>
+                </div>
+              ))}
+              <button onClick={() => setSchedules(ss => [...ss, { date: '', start_time: '20:00', end_time: '', total_capacity: 0, staff_pin: rPin(), staff_phone: '', staff_email: '' }])} className="w-full py-2.5 rounded-lg border border-dashed border-gray-700 text-sm text-gray-400 hover:text-white hover:border-gray-500 transition-colors">+ Agregar función</button>
             </div>
           )}
 
           {/* ═══ STEP 3: ZONES ═══ */}
           {step === 3 && (
             <div className="space-y-4">
+              {!hasReservedSections && (
+                <div className="text-xs text-gray-500 bg-gray-900/50 rounded-lg px-3 py-2 border border-gray-800">
+                  Este venue solo admite zonas de <b className="text-gray-300">Admisión General</b>. Para zonas con asientos numerados, primero agrega secciones de tipo &quot;reserved&quot; al venue.
+                </div>
+              )}
               {zones.map((z, i) => (
-                <div key={i} className="bg-[#141414] rounded-xl p-4 border border-[#282828] relative">
+                <div key={i} className={`${cardCls} relative`}>
                   {zones.length > 1 && <XBtn onClick={() => setZones(zs => zs.filter((_, j) => j !== i))}/>}
-                  <p className="text-xs text-gray-500 font-medium mb-3">Zona {i + 1}</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><label className={lblCls}>Nombre *</label><input className={inpCls} value={z.zone_name} onChange={e => setZones(zs => zs.map((zz, j) => j === i ? { ...zz, zone_name: e.target.value } : zz))} placeholder="VIP, General..."/></div>
-                    <div><label className={lblCls}>Tipo</label><select className={inpCls} value={z.zone_type} onChange={e => setZones(zs => zs.map((zz, j) => j === i ? { ...zz, zone_type: e.target.value } : zz))}>{ZONE_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select></div>
-                    <div><label className={lblCls}>Precio (MXN) *</label><input type="number" className={inpCls} value={z.price} min={0} onChange={e => setZones(zs => zs.map((zz, j) => j === i ? { ...zz, price: Number(e.target.value) } : zz))}/></div>
-                    <div><label className={lblCls}>Capacidad *</label><input type="number" className={inpCls} value={z.total_capacity} min={1} onChange={e => setZones(zs => zs.map((zz, j) => j === i ? { ...zz, total_capacity: Number(e.target.value) } : zz))}/></div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: z.color }}/>
+                    <p className="text-xs text-gray-500 font-medium">Zona {i + 1}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div><label className={lblCls}>Nombre *</label><input className={inpCls} value={z.zone_name} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, zone_name: e.target.value } : x))} placeholder="VIP, General..."/></div>
+                    <div>
+                      <label className={lblCls}>Tipo</label>
+                      <select className={inpCls} value={z.zone_type} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, zone_type: e.target.value as 'ga' | 'reserved' } : x))}
+                        disabled={!hasReservedSections}>
+                        <option value="ga">General (GA)</option>
+                        {hasReservedSections && <option value="reserved">Reserved</option>}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div><label className={lblCls}>Precio *</label><input type="number" className={inpCls} value={z.price || ''} min={0} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, price: Number(e.target.value) } : x))}/></div>
+                    <div><label className={lblCls}>Precio original</label><input type="number" className={inpCls} value={z.original_price || ''} min={0} placeholder="Tachado" onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, original_price: Number(e.target.value) } : x))}/></div>
+                    <div>
+                      <label className={lblCls}>Capacidad {z.zone_type === 'reserved' ? '(mapeo)' : '*'}</label>
+                      <input type="number" className={inpCls} value={z.total_capacity || ''} min={1}
+                        disabled={z.zone_type === 'reserved'}
+                        placeholder={z.zone_type === 'reserved' ? 'Se calcula del mapeo' : ''}
+                        onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, total_capacity: Number(e.target.value) } : x))}/>
+                    </div>
+                    <div>
+                      <label className={lblCls}>Color</label>
+                      <div className="flex items-center gap-2">
+                        <input type="color" className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" value={z.color} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, color: e.target.value } : x))}/>
+                        <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                          <input type="checkbox" className="accent-[#EF4444]" checked={z.has_2x1} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, has_2x1: e.target.checked } : x))}/>
+                          2x1
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
-              <button onClick={() => setZones(zs => [...zs, { zone_name: '', zone_type: 'general', price: 0, total_capacity: 100 }])} className="w-full py-2.5 rounded-lg border border-dashed border-[#333] text-sm text-gray-400 hover:text-white hover:border-[#555] transition-colors">+ Agregar zona</button>
+              <button onClick={() => setZones(zs => [...zs, { zone_name: '', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[zs.length % ZONE_COLORS.length], has_2x1: false }])} className="w-full py-2.5 rounded-lg border border-dashed border-gray-700 text-sm text-gray-400 hover:text-white hover:border-gray-500 transition-colors">+ Agregar zona</button>
+
+              {/* Capacity check */}
+              <div className="text-xs text-gray-500 flex justify-between px-1">
+                <span>Total zonas: {totalZoneCapacity} boletos</span>
+                {selVenue && <span className={totalZoneCapacity > selVenue.capacity ? 'text-red-400' : 'text-green-400'}>Venue: {selVenue.capacity} cap {totalZoneCapacity > selVenue.capacity ? '⚠️ excede' : '✓'}</span>}
+              </div>
             </div>
           )}
 
-          {/* ═══ STEP 4: FUNCTIONS ═══ */}
+          {/* ═══ STEP 4: COMMISSION & CONFIG ═══ */}
           {step === 4 && (
             <div className="space-y-4">
-              {funcs.map((f, i) => (
-                <div key={i} className="bg-[#141414] rounded-xl p-4 border border-[#282828] relative">
-                  {funcs.length > 1 && <XBtn onClick={() => setFuncs(fs => fs.filter((_, j) => j !== i))}/>}
-                  <p className="text-xs text-gray-500 font-medium mb-3">Función {i + 1} <span className="text-gray-600">· PIN: {f.staff_pin}</span></p>
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    <div><label className={lblCls}>Fecha *</label><input type="date" className={inpCls} value={f.date} onChange={e => setFuncs(fs => fs.map((ff, j) => j === i ? { ...ff, date: e.target.value } : ff))}/></div>
-                    <div><label className={lblCls}>Hora inicio *</label><input type="time" className={inpCls} value={f.start_time} onChange={e => setFuncs(fs => fs.map((ff, j) => j === i ? { ...ff, start_time: e.target.value } : ff))}/></div>
-                    <div><label className={lblCls}>Hora fin</label><input type="time" className={inpCls} value={f.end_time} onChange={e => setFuncs(fs => fs.map((ff, j) => j === i ? { ...ff, end_time: e.target.value } : ff))}/></div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div><label className={lblCls}>Capacidad</label><input type="number" className={inpCls} value={f.total_capacity} min={1} onChange={e => setFuncs(fs => fs.map((ff, j) => j === i ? { ...ff, total_capacity: Number(e.target.value) } : ff))}/></div>
-                    <div><label className={lblCls}>Tel. staff</label><input className={inpCls} value={f.staff_phone} placeholder="55 1234 5678" onChange={e => setFuncs(fs => fs.map((ff, j) => j === i ? { ...ff, staff_phone: e.target.value } : ff))}/></div>
-                    <div><label className={lblCls}>Email staff</label><input type="email" className={inpCls} value={f.staff_email} placeholder="staff@event.com" onChange={e => setFuncs(fs => fs.map((ff, j) => j === i ? { ...ff, staff_email: e.target.value } : ff))}/></div>
+              <div className={cardCls}>
+                <p className="text-xs text-gray-500 font-medium mb-3">Comisión Dulos</p>
+                <div className="flex items-center gap-3">
+                  <input type="number" className={`${inpCls} w-24`} value={commRate} step={1} min={0} max={100} onChange={e => setCommRate(Number(e.target.value))}/>
+                  <span className="text-sm text-gray-400">%</span>
+                </div>
+              </div>
+
+              <div className={cardCls}>
+                <p className="text-xs text-gray-500 font-medium mb-3">Configuración</p>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <input type="checkbox" className="accent-[#EF4444]" checked={ev.show_remaining} onChange={e => setEv(p => ({ ...p, show_remaining: e.target.checked }))}/>
+                    Mostrar boletos restantes
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <input type="checkbox" className="accent-[#EF4444]" checked={ev.featured} onChange={e => setEv(p => ({ ...p, featured: e.target.checked }))}/>
+                    Evento destacado
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-gray-300">Orden</label>
+                    <input type="number" className={`${inpCls} w-20`} value={ev.sort_order} min={0} onChange={e => setEv(p => ({ ...p, sort_order: Number(e.target.value) }))}/>
                   </div>
                 </div>
-              ))}
-              <button onClick={() => setFuncs(fs => [...fs, { date: '', start_time: '20:00', end_time: '22:00', total_capacity: selVenue?.capacity || 200, staff_pin: rPin(), staff_phone: '', staff_email: '' }])} className="w-full py-2.5 rounded-lg border border-dashed border-[#333] text-sm text-gray-400 hover:text-white hover:border-[#555] transition-colors">+ Agregar función</button>
+              </div>
             </div>
           )}
 
           {/* ═══ STEP 5: REVIEW ═══ */}
           {step === 5 && (
             <div className="space-y-4">
-              {/* Venue summary */}
-              <div className="bg-[#141414] rounded-xl p-4 border border-[#282828]">
+              {/* Venue */}
+              <div className={cardCls}>
                 <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Venue</p>
                 <p className="text-sm font-bold text-white">{selVenue?.name || '—'}</p>
-                <p className="text-xs text-gray-400">{selVenue?.address} · {selVenue?.city} · Cap: {selVenue?.capacity}</p>
-                {createNew && <span className="text-[10px] bg-yellow-900/50 text-yellow-400 px-2 py-0.5 rounded-full mt-1 inline-block">Nuevo</span>}
+                <p className="text-xs text-gray-400">{[selVenue?.address, selVenue?.city].filter(Boolean).join(', ')} · Cap: {selVenue?.capacity} · <span className={`${venueBadge === 'GA' ? 'text-green-400' : 'text-blue-400'}`}>{venueBadge}</span></p>
               </div>
 
-              {/* Event summary */}
-              <div className="bg-[#141414] rounded-xl p-4 border border-[#282828]">
+              {/* Event */}
+              <div className={cardCls}>
                 <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Evento</p>
                 <p className="text-sm font-bold text-white">{ev.name}</p>
                 <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-400">
                   <span>/{ev.slug}</span>
-                  <span>{ev.event_type}</span>
+                  <span>{schedules.length === 1 ? 'Única función' : `Recurrente (${schedules.length} funciones)`}</span>
                   <span>{ev.category}</span>
-                  <span>{ev.start_date} → {ev.end_date}</span>
-                  {ev.price_from > 0 && <span>Desde {fmt(ev.price_from)}</span>}
+                  {ev.image_url && <span className="text-green-400">✓ Imagen</span>}
                 </div>
-                {ev.description && <p className="text-xs text-gray-500 mt-2 line-clamp-2">{ev.description}</p>}
               </div>
 
-              {/* Zones summary */}
-              <div className="bg-[#141414] rounded-xl p-4 border border-[#282828]">
+              {/* Zones */}
+              <div className={cardCls}>
                 <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-2">Zonas ({zones.length})</p>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {zones.map((z, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-white">{z.zone_name} <span className="text-gray-500">({z.zone_type})</span></span>
-                      <span className="text-gray-400">{fmt(z.price)} · {z.total_capacity} lugares</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: z.color }}/>
+                        <span className="text-white">{z.zone_name}</span>
+                        <span className="text-gray-600">({z.zone_type})</span>
+                        {z.has_2x1 && <span className="text-yellow-400">2x1</span>}
+                      </div>
+                      <div className="text-gray-400">
+                        {fmt(z.price)}
+                        {z.original_price > 0 && <span className="line-through text-gray-600 ml-1">{fmt(z.original_price)}</span>}
+                        <span className="ml-2">{z.total_capacity} bol.</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Functions summary */}
-              <div className="bg-[#141414] rounded-xl p-4 border border-[#282828]">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-2">Funciones ({funcs.length})</p>
+              {/* Schedules */}
+              <div className={cardCls}>
+                <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-2">Funciones ({schedules.length})</p>
                 <div className="space-y-1">
-                  {funcs.map((f, i) => (
+                  {schedules.map((s, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-white">{f.date} {f.start_time}–{f.end_time}</span>
-                      <span className="text-gray-400">Cap: {f.total_capacity} · PIN: {f.staff_pin}</span>
+                      <span className="text-white">{s.date} {s.start_time}{s.end_time ? `–${s.end_time}` : ''}</span>
+                      <span className="text-gray-400">Cap: {s.total_capacity || totalZoneCapacity} · PIN: {s.staff_pin}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Inventory preview */}
-              <div className="bg-[#141414] rounded-xl p-4 border border-[#282828]">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Inventario a crear</p>
-                <p className="text-xs text-gray-400">{funcs.length} funciones × {zones.length} zonas = <span className="text-white font-bold">{funcs.length * zones.length}</span> registros de inventario</p>
-              </div>
-
-              {/* Commission */}
-              <div className="bg-[#141414] rounded-xl p-4 border border-[#282828]">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-2">Comisión</p>
-                <div className="flex items-center gap-3">
-                  <input type="number" className={`${inpCls} w-28`} value={commRate} step={0.01} min={0} max={1} onChange={e => setCommRate(Number(e.target.value))}/>
-                  <span className="text-sm text-gray-400">= {(commRate * 100).toFixed(0)}%</span>
+              {/* What will be created */}
+              <div className={cardCls}>
+                <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-2">Se creará</p>
+                <div className="space-y-1 text-xs text-gray-300">
+                  <p>✓ 1 evento ({schedules.length === 1 ? 'single' : 'recurring'})</p>
+                  <p>✓ {zones.length} zona{zones.length > 1 ? 's' : ''} de boletos</p>
+                  <p>✓ {schedules.length} función{schedules.length > 1 ? 'es' : ''}</p>
+                  <p>✓ {schedules.length * zones.length} registros de inventario</p>
+                  <p>✓ Comisión: {commRate}%</p>
                 </div>
               </div>
+
+              {/* Warnings */}
+              {stepWarnings.length > 0 && (
+                <div className="bg-yellow-900/20 border border-yellow-800/30 rounded-lg p-3">
+                  <p className="text-xs font-medium text-yellow-400 mb-1">⚠️ Warnings</p>
+                  {stepWarnings.map((w, i) => <p key={i} className="text-xs text-yellow-400/80">• {w}</p>)}
+                </div>
+              )}
             </div>
           )}
 
@@ -366,19 +647,24 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
           {error && <div className="mt-4 p-3 rounded-lg bg-red-900/30 border border-red-800 text-sm text-red-300">{error}</div>}
 
           {/* Nav buttons */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#222]">
-            <button onClick={() => step > 1 ? setStep(step - 1) : onClose()} className="px-5 py-2.5 rounded-lg border border-[#333] text-gray-300 text-sm font-medium hover:bg-[#1a1a1a] transition-colors">
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-800">
+            <button onClick={() => step > 1 ? setStep(step - 1) : onClose()} className="px-5 py-2.5 rounded-lg border border-gray-700 text-gray-300 text-sm font-medium hover:bg-[#111] transition-colors">
               {step === 1 ? 'Cancelar' : '← Anterior'}
             </button>
             {step < 5 ? (
-              <button onClick={() => setStep(step + 1)} disabled={!canNext()} className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              <button onClick={() => setStep(step + 1)} disabled={!canNext()} className="px-5 py-2.5 rounded-lg bg-[#EF4444] hover:bg-red-600 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 Siguiente →
               </button>
             ) : (
-              <button onClick={handleSubmit} disabled={submitting} className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2">
-                {submitting && <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
-                {submitting ? 'Creando...' : 'Crear Evento'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button onClick={() => handleSubmit('draft')} disabled={submitting} className="px-5 py-2.5 rounded-lg border border-gray-600 text-gray-300 text-sm font-medium hover:bg-[#111] transition-colors disabled:opacity-40">
+                  {submitting ? '...' : 'Crear Borrador'}
+                </button>
+                <button onClick={() => handleSubmit('active')} disabled={submitting} className="px-5 py-2.5 rounded-lg bg-[#EF4444] hover:bg-red-600 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2">
+                  {submitting && <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
+                  {submitting ? 'Creando...' : 'Crear Activo'}
+                </button>
+              </div>
             )}
           </div>
         </div>
