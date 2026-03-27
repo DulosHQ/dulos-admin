@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   "/favicon",
   "/api/webhooks/stripe",
   "/api/health",
+  "/api/meta-proxy",
   "/dulos-logo.svg",
 ];
 
