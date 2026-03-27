@@ -518,10 +518,8 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                       if (oi === i) return;
                       oz.venue_section_ids.forEach(sid => assignedByOther.set(sid, oz.zone_name || `Zona ${oi + 1}`));
                     });
-                    // Filter sections by type match
-                    const matchingSections = venueSections.filter(vs =>
-                      z.zone_type === 'reserved' ? vs.section_type === 'reserved' : vs.section_type === 'ga'
-                    );
+                    // Show ALL venue sections — they represent physical areas regardless of zone type
+                    const matchingSections = venueSections;
                     if (matchingSections.length === 0) return null;
                     return (
                       <div className="mb-3">
