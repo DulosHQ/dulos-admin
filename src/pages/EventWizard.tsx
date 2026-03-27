@@ -9,6 +9,15 @@ const ZONE_COLORS = ['#E63946', '#2A7AE8', '#E88D2A', '#10B981', '#8B5CF6', '#EC
 const DAYS_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const STEP_LABELS = ['Info', 'Fechas', 'Zonas', 'Organizador', 'Revisión'];
 const fmt = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(n);
+const fmtDateDay = (d: string) => {
+  if (!d) return '—';
+  try {
+    const dt = new Date(d + 'T12:00:00');
+    if (isNaN(dt.getTime())) return d;
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return `${days[dt.getDay()]} ${dt.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  } catch { return d; }
+};
 
 /* ─── Types ─── */
 interface Venue {
@@ -490,14 +499,15 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                   </div>
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <div><label className={lblCls}>Nombre *</label><input className={inpCls} value={z.zone_name} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, zone_name: e.target.value } : x))} placeholder="VIP, General..."/></div>
-                    <div>
-                      <label className={lblCls}>Tipo</label>
-                      <select className={inpCls} value={z.zone_type} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, zone_type: e.target.value as 'ga' | 'reserved' } : x))}
-                        disabled={!hasReservedSections}>
-                        <option value="ga">General (GA)</option>
-                        {hasReservedSections && <option value="reserved">Reserved</option>}
-                      </select>
-                    </div>
+                    {hasReservedSections && (
+                      <div>
+                        <label className={lblCls}>Tipo</label>
+                        <select className={inpCls} value={z.zone_type} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, zone_type: e.target.value as 'ga' | 'reserved' } : x))}>
+                          <option value="ga">General (GA)</option>
+                          <option value="reserved">Reserved</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div><label className={lblCls}>Precio *</label><input type="number" className={inpCls} value={z.price || ''} min={0} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, price: Number(e.target.value) } : x))}/></div>
@@ -619,7 +629,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                 <div className="space-y-1">
                   {schedules.map((s, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-white">{s.date} {s.start_time}{s.end_time ? `–${s.end_time}` : ''}</span>
+                      <span className="text-white">{fmtDateDay(s.date)}, {s.start_time}{s.end_time ? `–${s.end_time}` : ''}</span>
                       <span className="text-gray-400">Cap: {s.total_capacity || totalZoneCapacity} · PIN: {s.staff_pin}</span>
                     </div>
                   ))}

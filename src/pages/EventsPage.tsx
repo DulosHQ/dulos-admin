@@ -83,8 +83,43 @@ function Skel() {
 }
 
 /* ─── Event Detail Tabs ─── */
-function EventDetail({ event: ev, onBack, zones, orders }: { event: EventCard; onBack: () => void; zones: TicketZone[]; orders: Order[] }) {
+async function proxyMutate(method: 'POST' | 'PATCH' | 'DELETE', path: string, query?: string, payload?: unknown) {
+  const res = await fetch('/api/supabase-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method, path, query, payload }),
+  });
+  if (!res.ok) throw new Error('Mutation failed');
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function proxyFetch<T>(path: string, query?: string): Promise<T> {
+  const params = new URLSearchParams();
+  params.set('path', path);
+  if (query) new URLSearchParams(query).forEach((v, k) => params.set(k, v));
+  const res = await fetch(`/api/supabase-proxy?${params.toString()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Fetch error: ${res.status}`);
+  return res.json();
+}
+
+const fmtDateWithDay = (d: string) => {
+  if (!d) return '—';
+  try {
+    const dt = new Date(d + 'T12:00:00');
+    if (isNaN(dt.getTime())) return '—';
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const day = days[dt.getDay()];
+    return `${day} ${dt.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  } catch { return '—'; }
+};
+
+function EventDetail({ event: ev, onBack, zones, orders, onReload }: { event: EventCard; onBack: () => void; zones: TicketZone[]; orders: Order[]; onReload: () => void }) {
   const [activeTab, setActiveTab] = useState<EventTab>('info');
+  const [changingStatus, setChangingStatus] = useState(false);
+  const [addingDate, setAddingDate] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('20:00');
 
   // Get zones for this event
   const eventZones = zones.filter(z => z.event_id === ev.id);
@@ -109,6 +144,66 @@ function EventDetail({ event: ev, onBack, zones, orders }: { event: EventCard; o
     ? ev.schedules.find(s => new Date(s.date) >= new Date()) 
     : null;
 
+  // Status change handler
+  const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === ev.status) return;
+    const label = newStatus === 'active' ? 'Activar' : newStatus === 'draft' ? 'Borrador' : 'Cancelar';
+    if (newStatus === 'cancelled' && eventOrders.length > 0) {
+      if (!confirm(`Este evento tiene ${eventOrders.length} órdenes. Cancelar no genera reembolsos automáticos. ¿Continuar?`)) return;
+    }
+    setChangingStatus(true);
+    try {
+      await proxyMutate('PATCH', 'events', `id=eq.${ev.id}`, { status: newStatus });
+      toast.success(`Evento ${label === 'Activar' ? 'activado' : label === 'Borrador' ? 'movido a borrador' : 'cancelado'}`);
+      onReload();
+    } catch (e) { toast.error('Error cambiando status'); }
+    finally { setChangingStatus(false); }
+  };
+
+  // Add date handler
+  const handleAddDate = async () => {
+    if (!newDate || !newTime) return;
+    setAddingDate(true);
+    try {
+      // Get zones for capacity
+      const eventZonesForCap = zones.filter(z => z.event_id === ev.id);
+      const totalCap = eventZonesForCap.reduce((s, z) => s + ((z.available || 0) + (z.sold || 0)), 0);
+      const pin = String(Math.floor(100000 + Math.random() * 900000));
+
+      // Create schedule
+      const sched = await proxyMutate('POST', 'schedules', undefined, {
+        event_id: ev.id,
+        date: newDate,
+        start_time: newTime,
+        end_time: null,
+        total_capacity: totalCap,
+        sold_capacity: 0,
+        reserved_capacity: 0,
+        staff_pin: pin,
+        status: 'active',
+      });
+      const schedId = Array.isArray(sched) ? sched[0]?.id : sched?.id;
+
+      // Create schedule_inventory for each zone
+      if (schedId) {
+        for (const z of eventZonesForCap) {
+          await proxyMutate('POST', 'schedule_inventory', undefined, {
+            schedule_id: schedId,
+            zone_id: z.id,
+            available: (z.available || 0) + (z.sold || 0),
+            sold: 0,
+            reserved: 0,
+          });
+        }
+      }
+
+      toast.success(`Fecha agregada: ${newDate} ${newTime}`);
+      setNewDate(''); setNewTime('20:00');
+      onReload();
+    } catch (e) { toast.error('Error agregando fecha'); }
+    finally { setAddingDate(false); }
+  };
+
   return (
     <div className="animate-fade-in">
       <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white mb-4 transition-colors">
@@ -122,13 +217,22 @@ function EventDetail({ event: ev, onBack, zones, orders }: { event: EventCard; o
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <h2 className="text-lg font-bold text-white truncate">{ev.name}</h2>
-            <Badge status={ev.status} isPast={ev.isPast}/>
+            {!ev.isPast ? (
+              <select value={ev.status} onChange={e => handleStatusChange(e.target.value)} disabled={changingStatus}
+                className={`text-[11px] px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer appearance-auto ${ev.status === 'active' ? 'bg-green-900/50 text-green-400' : ev.status === 'draft' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-red-900/50 text-red-400'}`}>
+                <option value="draft">Borrador</option>
+                <option value="active">Activo</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            ) : (
+              <Badge status={ev.status} isPast={ev.isPast}/>
+            )}
           </div>
           <p className="text-sm text-gray-400">{ev.venueName}{ev.venueCity ? `, ${ev.venueCity}` : ''}</p>
           <div className="flex flex-wrap gap-4 mt-3 text-sm">
             <div><span className="text-gray-500">Tipo</span><p className="text-white font-medium">{ev.event_type === 'single' ? 'Único' : ev.event_type === 'recurring' ? 'Recurrente' : 'Múltiple'}</p></div>
-            <div><span className="text-gray-500">Funciones</span><p className="text-white font-medium">{ev.schedules.length}</p></div>
-            {nextFunction && <div><span className="text-gray-500">Próxima función</span><p className="text-white font-medium">{fmtDate(nextFunction.date)}</p></div>}
+            <div><span className="text-gray-500">Fechas</span><p className="text-white font-medium">{ev.schedules.length}</p></div>
+            {nextFunction && <div><span className="text-gray-500">Próxima fecha</span><p className="text-white font-medium">{fmtDateWithDay(nextFunction.date)}</p></div>}
           </div>
         </div>
       </div>
@@ -137,7 +241,7 @@ function EventDetail({ event: ev, onBack, zones, orders }: { event: EventCard; o
       <div className="flex gap-1 rounded-lg bg-[#111] p-1 w-fit mb-4">
         {([
           {k:'info' as EventTab, l:'Info'},
-          {k:'funciones' as EventTab, l:'Funciones'},
+          {k:'funciones' as EventTab, l:'Fechas'},
           {k:'zonas' as EventTab, l:'Zonas y Precios'},
           {k:'compradores' as EventTab, l:'Compradores'}
         ]).map(t => (
@@ -159,7 +263,7 @@ function EventDetail({ event: ev, onBack, zones, orders }: { event: EventCard; o
                 <div><span className="text-gray-500 text-sm">Estado:</span> <Badge status={ev.status} isPast={ev.isPast}/></div>
                 <div><span className="text-gray-500 text-sm">Tipo de evento:</span> <span className="text-white">{ev.event_type === 'single' ? 'Evento único' : ev.event_type === 'recurring' ? 'Recurrente' : 'Múltiple'}</span></div>
                 {ev.description && <div><span className="text-gray-500 text-sm">Descripción:</span> <p className="text-white mt-1">{ev.description}</p></div>}
-                {ev.slug && <div><span className="text-gray-500 text-sm">Página pública:</span> <a href={`https://dulos.io/evento/${ev.slug}`} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">dulos.io/evento/{ev.slug}</a></div>}
+                {ev.slug && <div><span className="text-gray-500 text-sm">Página pública:</span> <a href={`https://dulos.io/${ev.slug}`} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">dulos.io/{ev.slug}</a></div>}
               </div>
             </div>
           </div>
@@ -167,16 +271,32 @@ function EventDetail({ event: ev, onBack, zones, orders }: { event: EventCard; o
 
         {activeTab === 'funciones' && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Funciones Programadas</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Fechas Programadas</h3>
+              {!ev.isPast && (
+                <button onClick={() => setAddingDate(!addingDate)} className="text-xs text-[#EF4444] hover:text-red-300 transition-colors">
+                  {addingDate ? 'Cancelar' : '+ Agregar fecha'}
+                </button>
+              )}
+            </div>
+            {addingDate && (
+              <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 mb-4 flex items-end gap-3">
+                <div><label className="block text-xs text-gray-400 mb-1">Fecha</label><input type="date" className="rounded-lg border border-gray-700 bg-[#1a1a1a] px-3 py-2 text-sm text-white focus:border-[#EF4444] focus:outline-none" value={newDate} onChange={e => setNewDate(e.target.value)}/></div>
+                <div><label className="block text-xs text-gray-400 mb-1">Hora</label><input type="time" className="rounded-lg border border-gray-700 bg-[#1a1a1a] px-3 py-2 text-sm text-white focus:border-[#EF4444] focus:outline-none" value={newTime} onChange={e => setNewTime(e.target.value)}/></div>
+                <button onClick={handleAddDate} disabled={!newDate || addingDate} className="px-4 py-2 bg-[#EF4444] text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-40 transition-colors">
+                  Agregar
+                </button>
+              </div>
+            )}
             {ev.schedules.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">No hay funciones programadas</div>
+              <div className="text-center text-gray-500 py-8">No hay fechas programadas</div>
             ) : (
               <div className="space-y-2">
                 {ev.schedules.map(s => (
                   <div key={s.id} className="border border-gray-800 rounded-lg p-3 hover:border-gray-700 transition-colors">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-white font-medium">{fmtDate(s.date)}</p>
+                        <p className="text-white font-medium">{fmtDateWithDay(s.date)}</p>
                         <p className="text-sm text-gray-400">{fmtTime(s.start_time)}{s.end_time ? ` — ${fmtTime(s.end_time)}` : ''}</p>
                       </div>
                       <div className="text-right">
@@ -364,7 +484,7 @@ export default function EventsPage() {
 
   if (loading) return (<div className="bg-[#0a0a0a] min-h-[600px] rounded-2xl p-4 sm:p-6"><h1 className="text-xl font-bold text-white mb-6">EVENTOS</h1><Skel/></div>);
 
-  if (selEv) return (<div className="bg-[#0a0a0a] min-h-[600px] rounded-2xl p-4 sm:p-6"><EventDetail event={selEv} onBack={() => setSelId(null)} zones={zones} orders={orders}/></div>);
+  if (selEv) return (<div className="bg-[#0a0a0a] min-h-[600px] rounded-2xl p-4 sm:p-6"><EventDetail event={selEv} onBack={() => setSelId(null)} zones={zones} orders={orders} onReload={load}/></div>);
 
   return (
     <div className="bg-[#0a0a0a] min-h-[600px] rounded-2xl p-4 sm:p-6">
@@ -403,8 +523,8 @@ export default function EventsPage() {
                 </div>
                 <p className="text-xs text-gray-500 truncate">{evt.venueName}{evt.venueCity ? `, ${evt.venueCity}` : ''}</p>
                 <div className="flex flex-wrap gap-3 sm:gap-4 mt-2 text-xs">
-                  {nextFunction && <span className="text-gray-400">Próxima: <span className="text-white font-medium">{fmtDate(nextFunction.date)}</span></span>}
-                  <span className="text-gray-400">Funciones: <span className="text-white font-medium">{evt.schedules.length}</span></span>
+                  {nextFunction && <span className="text-gray-400">Próxima: <span className="text-white font-medium">{fmtDateWithDay(nextFunction.date)}</span></span>}
+                  <span className="text-gray-400">Fechas: <span className="text-white font-medium">{evt.schedules.length}</span></span>
                 </div>
               </div>
               <svg className="w-5 h-5 text-gray-600 group-hover:text-gray-400 transition-colors flex-shrink-0 self-center" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
