@@ -9,6 +9,7 @@ import AdsPage from "@/pages/AdsPage";
 import EventsPage from "@/pages/EventsPage";
 import OpsPage from "@/pages/OpsPage";
 import AdminPage from "@/pages/AdminPage";
+import VenuesPage from "@/pages/VenuesPage";
 import AdminShell from "@/layouts/AdminShell";
 
 function getSupabase() {
@@ -104,6 +105,7 @@ export default function Home() {
     liquidaciones: <LiquidacionesPage />,
     ads: <AdsPage />,
     eventos: <EventsPage />,
+    venues: <VenuesPage />,
     operaciones: <OpsPage />,
     admin: <AdminPage />,
   };

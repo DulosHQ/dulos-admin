@@ -408,6 +408,18 @@ export interface EventSectionSeat {
   created_at: string;
 }
 
+export interface VenueSection {
+  id: string;
+  venue_id: string;
+  name: string;
+  slug: string;
+  section_type: string;
+  capacity: number | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface EventCommission {
   id: string;
   event_id: string;
@@ -938,6 +950,22 @@ export async function fetchAllEscalations(): Promise<Escalation[]> {
 }
 
 // ─── Paolo's Seat Architecture ───
+
+export async function fetchVenueSections(venueId: string): Promise<VenueSection[]> {
+  try {
+    return await supabaseFetch<VenueSection[]>(`venue_sections?venue_id=eq.${venueId}&order=sort_order.asc`);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAllVenueSections(): Promise<VenueSection[]> {
+  try {
+    return await supabaseFetch<VenueSection[]>('venue_sections?order=venue_id,sort_order.asc');
+  } catch {
+    return [];
+  }
+}
 
 export async function fetchVenueSeats(venueId: string): Promise<VenueSeat[]> {
   try {
