@@ -37,7 +37,7 @@ export default function AdminNav({ activeTab, onTabChange, permissions }: AdminN
   const isSecondaryActive = secondaryTabs.some(t => t.id === activeTab);
 
   return (
-    <nav className="bg-[#111]">
+    <nav className="bg-[#111] relative">
       <div className="max-w-[1400px] mx-auto px-3 sm:px-8">
         <div className="flex gap-4 sm:gap-8 overflow-x-auto scrollbar-hide justify-start sm:justify-center py-1 items-center">
           {primaryTabs.map(tab => (
@@ -57,41 +57,45 @@ export default function AdminNav({ activeTab, onTabChange, permissions }: AdminN
             </button>
           ))}
 
-          {/* Secondary tabs — collapsed under "Más" */}
+          {/* Secondary tabs — "Más" button (dropdown renders outside overflow container) */}
           {secondaryTabs.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setShowMore(!showMore)}
-                className={`relative px-2 py-4 text-sm font-medium whitespace-nowrap transition-all ${
-                  isSecondaryActive ? "text-[#EF4444]" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                {isSecondaryActive ? secondaryTabs.find(t => t.id === activeTab)?.label : "Más"} ▾
-                {isSecondaryActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EF4444]" />
-                )}
-              </button>
-              {showMore && (
-                <div className="absolute right-0 top-full mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 min-w-[160px]">
-                  {secondaryTabs.map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => { onTabChange(tab.id); setShowMore(false); }}
-                      className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
-                        activeTab === tab.id
-                          ? "text-[#EF4444] bg-[#111]"
-                          : "text-gray-300 hover:bg-[#222] hover:text-white"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowMore(!showMore); }}
+              className={`relative px-2 py-4 text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+                isSecondaryActive ? "text-[#EF4444]" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              {isSecondaryActive ? secondaryTabs.find(t => t.id === activeTab)?.label : "Más"} ▾
+              {isSecondaryActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EF4444]" />
               )}
-            </div>
+            </button>
           )}
         </div>
       </div>
+
+      {/* Dropdown rendered OUTSIDE the overflow-x-auto container */}
+      {showMore && secondaryTabs.length > 0 && (
+        <>
+          {/* Backdrop to close dropdown */}
+          <div className="fixed inset-0 z-40" onClick={() => setShowMore(false)} />
+          <div className="absolute right-3 sm:right-8 top-full mt-1 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl z-50 min-w-[160px]">
+            {secondaryTabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => { onTabChange(tab.id); setShowMore(false); }}
+                className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
+                  activeTab === tab.id
+                    ? "text-[#EF4444] bg-[#111]"
+                    : "text-gray-300 hover:bg-[#222] hover:text-white"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </nav>
   );
 }
