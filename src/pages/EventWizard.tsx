@@ -64,6 +64,7 @@ async function proxyFetch<T>(path: string, query?: string): Promise<T> {
 
 /* ─── Styles ─── */
 const inpCls = 'w-full rounded-lg border border-gray-700 bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#EF4444] focus:outline-none transition-colors';
+const noSpinCls = '[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]';
 const lblCls = 'block text-xs text-gray-400 mb-1';
 const cardCls = 'bg-[#111] rounded-xl p-4 border border-gray-800';
 
@@ -233,7 +234,11 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
   function canNext(): boolean {
     if (step === 1) return !!(ev.name && ev.venue_id && ev.slug);
     if (step === 2) return schedules.length > 0 && schedules.every(s => s.date && s.start_time);
-    if (step === 3) return zones.length > 0 && zones.every(z => z.zone_name && z.price > 0 && (z.zone_type === 'reserved' || z.total_capacity > 0));
+    if (step === 3) return zones.length > 0 && zones.every(z =>
+      z.zone_name && z.price > 0 && (z.zone_type === 'reserved' || z.total_capacity > 0)
+      && (venueSections.length === 0 || z.venue_section_ids.length > 0) // require section when venue has sections
+    );
+    if (step === 4) return !!(orgName && orgPhone && orgEmail);
     return true;
   }
 
@@ -435,7 +440,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <label className={lblCls + ' mb-0'}>Duración (min)</label>
-                  <input type="number" className={`${inpCls} w-20`} value={durationMin} onChange={e => setDurationMin(Number(e.target.value))} min={15} step={15}/>
+                  <input type="number" className={`${inpCls} ${noSpinCls} w-20`} value={durationMin} onChange={e => setDurationMin(Number(e.target.value))} min={15} step={15}/>
                 </div>
                 <button onClick={() => setShowRecHelper(!showRecHelper)} className="text-xs text-[#EF4444] hover:text-red-300 transition-colors">
                   {showRecHelper ? 'Cerrar' : '🔄 Generar fechas recurrentes'}
@@ -453,7 +458,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                         {DAYS_ES.map((d, i) => <option key={i} value={i}>{d}</option>)}
                       </select>
                     </div>
-                    <div><label className={lblCls}>Hora</label><input type="time" className={inpCls} value={recTime} onChange={e => setRecTime(e.target.value)}/></div>
+                    <div><label className={lblCls}>Hora</label><input type="time" className={`${inpCls} ${noSpinCls}`} value={recTime} onChange={e => setRecTime(e.target.value)}/></div>
                     <div><label className={lblCls}>Desde</label><input type="date" className={inpCls} value={recFrom} onChange={e => setRecFrom(e.target.value)}/></div>
                     <div><label className={lblCls}>Hasta</label><input type="date" className={inpCls} value={recTo} onChange={e => setRecTo(e.target.value)}/></div>
                   </div>
@@ -474,8 +479,8 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                   </p>
                   <div className="grid grid-cols-3 gap-3">
                     <div><label className={lblCls}>Fecha *</label><input type="date" className={inpCls} value={s.date} onChange={e => setSchedules(ss => ss.map((x, j) => j === i ? { ...x, date: e.target.value } : x))}/></div>
-                    <div><label className={lblCls}>Hora inicio *</label><input type="time" className={inpCls} value={s.start_time} onChange={e => { const v = e.target.value; setSchedules(ss => ss.map((x, j) => { if (j !== i) return x; const [h, m] = v.split(':').map(Number); const total = h * 60 + m + durationMin; const eh = Math.floor(total / 60) % 24; const em = total % 60; return { ...x, start_time: v, end_time: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` }; })); }}/></div>
-                    <div><label className={lblCls}>Hora fin</label><input type="time" className={`${inpCls} text-gray-400 cursor-default`} value={s.end_time} readOnly tabIndex={-1}/></div>
+                    <div><label className={lblCls}>Hora inicio *</label><input type="time" className={`${inpCls} ${noSpinCls}`} value={s.start_time} onChange={e => { const v = e.target.value; setSchedules(ss => ss.map((x, j) => { if (j !== i) return x; const [h, m] = v.split(':').map(Number); const total = h * 60 + m + durationMin; const eh = Math.floor(total / 60) % 24; const em = total % 60; return { ...x, start_time: v, end_time: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` }; })); }}/></div>
+                    <div><label className={lblCls}>Hora fin</label><input type="time" className={`${inpCls} ${noSpinCls} text-gray-400 cursor-default`} value={s.end_time} readOnly tabIndex={-1}/></div>
                   </div>
                 </div>
               ))}
@@ -563,14 +568,15 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                     );
                   })()}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div><label className={lblCls}>Precio *</label><input type="number" className={inpCls} value={z.price || ''} min={0} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, price: Number(e.target.value) } : x))}/></div>
-                    <div><label className={lblCls}>Precio original</label><input type="number" className={inpCls} value={z.original_price || ''} min={0} placeholder="Tachado" onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, original_price: Number(e.target.value) } : x))}/></div>
+                    <div><label className={lblCls}>Precio *</label><input type="number" className={`${inpCls} ${noSpinCls}`} value={z.price || ''} min={0} onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, price: Number(e.target.value) } : x))}/></div>
+                    <div><label className={lblCls}>Precio original</label><input type="number" className={`${inpCls} ${noSpinCls}`} value={z.original_price || ''} min={0} placeholder="Tachado" onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, original_price: Number(e.target.value) } : x))}/></div>
                     <div>
                       <label className={lblCls}>Capacidad {z.venue_section_ids.length > 0 ? '(auto)' : z.zone_type === 'reserved' ? '(mapeo)' : '*'}</label>
-                      <input type="number" className={inpCls} value={z.total_capacity || ''} min={1}
-                        disabled={z.venue_section_ids.length > 0 || z.zone_type === 'reserved'}
+                      <input type="number" className={`${inpCls} ${noSpinCls} ${z.venue_section_ids.length > 0 ? 'text-gray-400 cursor-default' : ''}`} value={z.total_capacity || ''} min={1}
+                        readOnly={z.venue_section_ids.length > 0}
+                        tabIndex={z.venue_section_ids.length > 0 ? -1 : undefined}
                         placeholder={z.venue_section_ids.length > 0 ? 'Suma de secciones' : z.zone_type === 'reserved' ? 'Se calcula del mapeo' : ''}
-                        onChange={e => setZones(zs => zs.map((x, j) => j === i ? { ...x, total_capacity: Number(e.target.value) } : x))}/>
+                        onChange={e => { if (z.venue_section_ids.length > 0) return; setZones(zs => zs.map((x, j) => j === i ? { ...x, total_capacity: Number(e.target.value) } : x)); }}/>
                     </div>
                     <div>
                       <label className={lblCls}>Color</label>
@@ -597,10 +603,10 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
               <div className={cardCls}>
                 <p className="text-xs text-gray-500 font-medium mb-3">Contacto del organizador</p>
                 <div className="space-y-3">
-                  <div><label className={lblCls}>Nombre / Productora</label><input className={inpCls} value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="Dulos Producciones"/></div>
+                  <div><label className={lblCls}>Nombre / Productora *</label><input className={inpCls} value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="Dulos Producciones"/></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><label className={lblCls}>Teléfono</label><input className={inpCls} value={orgPhone} onChange={e => setOrgPhone(e.target.value)} placeholder="55 7393 3510"/></div>
-                    <div><label className={lblCls}>Email</label><input type="email" className={inpCls} value={orgEmail} onChange={e => setOrgEmail(e.target.value)} placeholder="paolo@dulos.io"/></div>
+                    <div><label className={lblCls}>Teléfono *</label><input className={inpCls} value={orgPhone} onChange={e => setOrgPhone(e.target.value)} placeholder="55 7393 3510"/></div>
+                    <div><label className={lblCls}>Email *</label><input type="email" className={inpCls} value={orgEmail} onChange={e => setOrgEmail(e.target.value)} placeholder="paolo@dulos.io"/></div>
                   </div>
                 </div>
               </div>
@@ -608,7 +614,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
               <div className={cardCls}>
                 <p className="text-xs text-gray-500 font-medium mb-3">Comisión Dulos</p>
                 <div className="flex items-center gap-3">
-                  <input type="number" className={`${inpCls} w-24`} value={commRate} step={1} min={0} max={100} onChange={e => setCommRate(Number(e.target.value))}/>
+                  <input type="number" className={`${inpCls} ${noSpinCls} w-24`} value={commRate} step={1} min={0} max={100} onChange={e => setCommRate(Number(e.target.value))}/>
                   <span className="text-sm text-gray-400">%</span>
                 </div>
               </div>
@@ -626,7 +632,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                   </label>
                   <div className="flex items-center gap-3">
                     <label className="text-sm text-gray-300">Orden</label>
-                    <input type="number" className={`${inpCls} w-20`} value={ev.sort_order} min={0} onChange={e => setEv(p => ({ ...p, sort_order: Number(e.target.value) }))}/>
+                    <input type="number" className={`${inpCls} ${noSpinCls} w-20`} value={ev.sort_order} min={0} onChange={e => setEv(p => ({ ...p, sort_order: Number(e.target.value) }))}/>
                   </div>
                 </div>
               </div>
@@ -671,7 +677,9 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                         {z.original_price > 0 && <span className="line-through text-gray-600 ml-1">{fmt(z.original_price)}</span>}
                         <span className="ml-2">{z.total_capacity} bol.</span>
                         {z.venue_section_ids.length > 0 && (
-                          <span className="ml-2 text-gray-600">({z.venue_section_ids.length} secc.)</span>
+                          <span className="ml-2 text-gray-600">
+                            ({z.venue_section_ids.map(sid => venueSections.find(vs => vs.id === sid)?.name || '?').join(', ')})
+                          </span>
                         )}
                       </div>
                     </div>
