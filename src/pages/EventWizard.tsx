@@ -292,6 +292,8 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
       const assignment = next.get(key);
       if (!assignment || typeof assignment === 'number') return prev;
       const splits = [...assignment.splits];
+      // Max splits = number of reserved zones
+      if (splits.length >= reservedZoneIndices.length) return prev;
       // Find largest range
       let largestIdx = 0;
       let largestSize = 0;
@@ -1054,10 +1056,12 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                                             </div>
                                           );
                                         })}
-                                        <button
-                                          onClick={() => addSplitPoint(row)}
-                                          className="text-xs text-gray-500 hover:text-white transition-colors mt-1"
-                                        >+ Agregar división</button>
+                                        {assignment.splits.length < reservedZoneIndices.length && (
+                                          <button
+                                            onClick={() => addSplitPoint(row)}
+                                            className="text-xs text-gray-500 hover:text-white transition-colors mt-1"
+                                          >+ Agregar división</button>
+                                        )}
                                       </div>
                                     </div>
                                   );
