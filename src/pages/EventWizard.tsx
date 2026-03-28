@@ -336,6 +336,35 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
     });
   }, []);
 
+  // Update the END boundary of range at splitIdx → cascade-adjust start of next range
+  const updateSplitTo = useCallback((row: RowGroup, splitIdx: number, newTo: number) => {
+    const key = rowKeyW(row.section, row.label);
+    setSeatAssignments(prev => {
+      const next = new Map(prev);
+      const assignment = next.get(key);
+      if (!assignment || typeof assignment === 'number') return prev;
+      const splits = [...assignment.splits];
+      const isLast = splitIdx === splits.length - 1;
+      // Clamp: must be >= from of this range, and <= maxSeat of row (or start of next - 1 if not last)
+      const minTo = splits[splitIdx].from;
+      const maxTo = isLast ? row.maxSeat : row.maxSeat - (splits.length - splitIdx - 1);
+      const clampedTo = Math.max(minTo, Math.min(maxTo, newTo));
+      splits[splitIdx] = { ...splits[splitIdx], to: clampedTo };
+      // Cascade: adjust start of all subsequent ranges
+      for (let i = splitIdx + 1; i < splits.length; i++) {
+        const newFrom = splits[i - 1].to + 1;
+        const newTo2 = i === splits.length - 1 ? row.maxSeat : Math.max(newFrom, splits[i].to);
+        splits[i] = { ...splits[i], from: newFrom, to: newTo2 };
+      }
+      // Ensure last range always ends at maxSeat
+      if (splits.length > 0) {
+        splits[splits.length - 1] = { ...splits[splits.length - 1], to: row.maxSeat };
+      }
+      next.set(key, { splits });
+      return next;
+    });
+  }, []);
+
   // Auto-update zone capacities when seat assignments change
   useEffect(() => {
     if (!hasReservedZones || seatRows.length === 0) return;
@@ -947,18 +976,47 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                                           title="Deshacer división"
                                         >↩️ deshacer</button>
                                       </div>
-                                      {/* Split ranges */}
-                                      <div className="px-4 pb-2 space-y-1.5">
+                                      {/* Split ranges — editable boundaries */}
+                                      <div className="px-4 pb-3 space-y-2">
                                         {assignment.splits.map((sp, spIdx) => {
                                           const spZone = zones[sp.zoneIdx];
+                                          const isLastRange = spIdx === assignment.splits.length - 1;
                                           return (
-                                            <div key={spIdx} className="flex items-center gap-2 text-xs">
-                                              <span className="text-gray-500 w-28 flex-shrink-0">
-                                                Asientos {sp.from}–{sp.to}
-                                              </span>
-                                              <span className="text-gray-600">({sp.to - sp.from + 1} asientos)</span>
+                                            <div key={spIdx} className="flex items-center gap-1.5 text-xs">
+                                              {/* From (read-only except first) */}
+                                              <span className="text-gray-500 flex-shrink-0">Asientos</span>
+                                              <input
+                                                type="number"
+                                                readOnly
+                                                value={sp.from}
+                                                className={`w-12 rounded border border-gray-700 bg-[#222] px-1.5 py-1 text-xs text-gray-400 text-center ${noSpinCls}`}
+                                                tabIndex={-1}
+                                              />
+                                              <span className="text-gray-600 flex-shrink-0">–</span>
+                                              {/* To: editable unless last range */}
+                                              {isLastRange ? (
+                                                <input
+                                                  type="number"
+                                                  readOnly
+                                                  value={sp.to}
+                                                  className={`w-12 rounded border border-gray-700 bg-[#222] px-1.5 py-1 text-xs text-gray-400 text-center ${noSpinCls}`}
+                                                  tabIndex={-1}
+                                                />
+                                              ) : (
+                                                <input
+                                                  type="number"
+                                                  value={sp.to}
+                                                  min={sp.from}
+                                                  max={row.maxSeat - (assignment.splits.length - spIdx - 1)}
+                                                  onChange={e => updateSplitTo(row, spIdx, Number(e.target.value))}
+                                                  onBlur={e => updateSplitTo(row, spIdx, Number(e.target.value))}
+                                                  className={`w-12 rounded border border-[#EF4444]/60 bg-[#1a1a1a] px-1.5 py-1 text-xs text-white text-center focus:border-[#EF4444] focus:outline-none ${noSpinCls}`}
+                                                />
+                                              )}
+                                              <span className="text-gray-600 flex-shrink-0">({sp.to - sp.from + 1})</span>
+                                              {/* Zone selector */}
                                               <select
-                                                className="flex-1 rounded border border-gray-700 bg-[#1a1a1a] px-2 py-1 text-xs text-white focus:border-[#EF4444] focus:outline-none"
+                                                className="flex-1 min-w-0 rounded border border-gray-700 bg-[#1a1a1a] px-2 py-1 text-xs text-white focus:border-[#EF4444] focus:outline-none"
                                                 value={sp.zoneIdx}
                                                 onChange={e => updateSplitZone(row, spIdx, Number(e.target.value))}
                                               >
@@ -967,13 +1025,13 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                                                 ))}
                                               </select>
                                               {spZone && (
-                                                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: spZone.color }} />
+                                                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: spZone.color }} />
                                               )}
                                               {assignment.splits.length > 1 && (
                                                 <button
                                                   onClick={() => removeSplitRange(row, spIdx)}
-                                                  className="text-gray-600 hover:text-red-400 transition-colors ml-1"
-                                                  title="Eliminar este rango"
+                                                  className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0"
+                                                  title="Eliminar rango"
                                                 >✕</button>
                                               )}
                                             </div>
