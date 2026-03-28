@@ -290,9 +290,17 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
       }
 
       if (typeof current === 'number') {
-        // Whole-row owned by another zone — convert to split, add active zone on remaining
-        // (nothing remaining if it covers all, so just convert)
-        next.set(key, { splits: [{ from: row.minSeat, to: row.maxSeat, zoneIdx: current }] });
+        if (current === activeIdx) {
+          // Same zone — just convert to split for editing
+          next.set(key, { splits: [{ from: row.minSeat, to: row.maxSeat, zoneIdx: current }] });
+        } else {
+          // Other zone owns whole row — split: give other zone first half, active zone second half
+          const mid = Math.floor((row.minSeat + row.maxSeat) / 2);
+          next.set(key, { splits: [
+            { from: row.minSeat, to: mid, zoneIdx: current },
+            { from: mid + 1, to: row.maxSeat, zoneIdx: activeIdx },
+          ]});
+        }
         return next;
       }
 
@@ -1007,7 +1015,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                                         })}
                                         {allSplits.length === 0 && <span className="text-xs text-gray-600">sin asignar</span>}
                                         {/* ✂️ button — split / add active zone to row */}
-                                        {!hasActiveRange && availableForActive > 0 && (
+                                        {!hasActiveRange && (assignment === undefined || availableForActive > 0 || typeof assignment === 'number') && (
                                           <button
                                             onClick={e => { e.stopPropagation(); enterSplitMode(row); }}
                                             className="text-gray-600 hover:text-gray-200 transition-colors opacity-0 group-hover:opacity-100 text-sm px-1"
