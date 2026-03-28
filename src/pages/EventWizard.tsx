@@ -346,8 +346,8 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
     });
   }, [activeMapZone, reservedZoneIndices]);
 
-  // Update range boundary for active zone on a row
-  const updateActiveRange = useCallback((row: RowGroup, field: 'from' | 'to', value: number) => {
+  // Update range boundary for active zone on a row (by split index within active zone's ranges)
+  const updateActiveRange = useCallback((row: RowGroup, rangeIdx: number, field: 'from' | 'to', value: number) => {
     const key = rowKeyW(row.section, row.label);
     const activeIdx = reservedZoneIndices[activeMapZone]?.index;
     if (activeIdx === undefined) return;
@@ -355,20 +355,69 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
       const next = new Map(prev);
       const current = next.get(key);
       if (!current || typeof current === 'number') return prev;
+      // Find all ranges for active zone and update the specific one
+      let activeCount = 0;
       const splits = current.splits.map(sp => {
         if (sp.zoneIdx !== activeIdx) return sp;
+        if (activeCount++ !== rangeIdx) return sp;
         const clamped = Math.max(row.minSeat, Math.min(row.maxSeat, value));
         if (field === 'from') return { ...sp, from: Math.min(clamped, sp.to) };
         return { ...sp, to: Math.max(clamped, sp.from) };
       });
-      // Validate: no overlap with other zones
-      const activeRange = splits.find(sp => sp.zoneIdx === activeIdx);
-      const otherRanges = splits.filter(sp => sp.zoneIdx !== activeIdx);
-      if (activeRange) {
-        const hasOverlap = otherRanges.some(o => activeRange.from <= o.to && activeRange.to >= o.from);
-        if (hasOverlap) return prev; // Block overlapping edits
+      // Validate: no overlap between ANY ranges
+      const sorted = [...splits].sort((a, b) => a.from - b.from);
+      for (let i = 0; i < sorted.length - 1; i++) {
+        if (sorted[i].to >= sorted[i + 1].from) return prev; // Block overlap
       }
-      next.set(key, { splits: splits.sort((a, b) => a.from - b.from) });
+      next.set(key, { splits: sorted });
+      return next;
+    });
+  }, [activeMapZone, reservedZoneIndices]);
+
+  // Add another range for the active zone on a row (non-contiguous)
+  const addRangeForActiveZone = useCallback((row: RowGroup) => {
+    const key = rowKeyW(row.section, row.label);
+    const activeIdx = reservedZoneIndices[activeMapZone]?.index;
+    if (activeIdx === undefined) return;
+    setSeatAssignments(prev => {
+      const next = new Map(prev);
+      const current = next.get(key);
+      if (!current || typeof current === 'number') return prev;
+      // Find gaps
+      const sorted = [...current.splits].sort((a, b) => a.from - b.from);
+      const gaps: { from: number; to: number }[] = [];
+      let cursor = row.minSeat;
+      for (const sp of sorted) {
+        if (sp.from > cursor) gaps.push({ from: cursor, to: sp.from - 1 });
+        cursor = Math.max(cursor, sp.to + 1);
+      }
+      if (cursor <= row.maxSeat) gaps.push({ from: cursor, to: row.maxSeat });
+      if (gaps.length === 0) return prev; // No room
+      // Fill first gap with active zone
+      const newSplits = [...current.splits, { from: gaps[0].from, to: gaps[0].to, zoneIdx: activeIdx }];
+      next.set(key, { splits: newSplits.sort((a, b) => a.from - b.from) });
+      return next;
+    });
+  }, [activeMapZone, reservedZoneIndices]);
+
+  // Remove a specific range (by index within active zone's ranges) from a row
+  const removeActiveRangeFromRow = useCallback((row: RowGroup, rangeIdx: number) => {
+    const key = rowKeyW(row.section, row.label);
+    const activeIdx = reservedZoneIndices[activeMapZone]?.index;
+    if (activeIdx === undefined) return;
+    setSeatAssignments(prev => {
+      const next = new Map(prev);
+      const current = next.get(key);
+      if (!current || typeof current === 'number') return prev;
+      let activeCount = 0;
+      const remaining = current.splits.filter(sp => {
+        if (sp.zoneIdx !== activeIdx) return true;
+        return activeCount++ !== rangeIdx;
+      });
+      if (remaining.length === 0) { next.delete(key); }
+      else if (remaining.length === 1 && remaining[0].from === row.minSeat && remaining[0].to === row.maxSeat) {
+        next.set(key, remaining[0].zoneIdx);
+      } else { next.set(key, { splits: remaining }); }
       return next;
     });
   }, [activeMapZone, reservedZoneIndices]);
@@ -1028,39 +1077,49 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                                         )}
                                       </div>
                                     </div>
-                                    {/* Active zone's editable range (only shown when split + active zone has a range) */}
-                                    {isSplit && hasActiveRange && activeRange && (
-                                      <div className="px-4 pb-2 flex items-center gap-1.5 text-xs">
-                                        <span className="text-gray-500">Asientos</span>
-                                        <input
-                                          type="number"
-                                          value={activeRange.from}
-                                          min={row.minSeat}
-                                          max={activeRange.to}
-                                          onChange={e => updateActiveRange(row, 'from', Number(e.target.value))}
-                                          className={`w-14 rounded border border-[#EF4444]/60 bg-[#1a1a1a] px-1.5 py-1 text-xs text-white text-center focus:border-[#EF4444] focus:outline-none ${noSpinCls}`}
-                                        />
-                                        <span className="text-gray-600">–</span>
-                                        <input
-                                          type="number"
-                                          value={activeRange.to}
-                                          min={activeRange.from}
-                                          max={row.maxSeat}
-                                          onChange={e => updateActiveRange(row, 'to', Number(e.target.value))}
-                                          className={`w-14 rounded border border-[#EF4444]/60 bg-[#1a1a1a] px-1.5 py-1 text-xs text-white text-center focus:border-[#EF4444] focus:outline-none ${noSpinCls}`}
-                                        />
-                                        <span className="text-gray-600">({activeRange.to - activeRange.from + 1} asientos)</span>
-                                        <span className="flex items-center gap-1 ml-1">
-                                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: activeZone?.color }} />
-                                          <span style={{ color: activeZone?.color }}>{activeZone?.zone_name}</span>
-                                        </span>
-                                        <button
-                                          onClick={() => removeZoneFromRow(row)}
-                                          className="text-gray-600 hover:text-red-400 transition-colors ml-auto"
-                                          title="Quitar esta zona de la fila"
-                                        >✕</button>
-                                      </div>
-                                    )}
+                                    {/* Active zone's editable ranges (all ranges for this zone on this row) */}
+                                    {isSplit && hasActiveRange && (() => {
+                                      const activeRanges = allSplits.filter(sp => sp.zoneIdx === activeIdx);
+                                      // Check if there are unassigned seats (gaps) in this row
+                                      const sortedAll = [...allSplits].sort((a, b) => a.from - b.from);
+                                      let hasGaps = false;
+                                      let cursor = row.minSeat;
+                                      for (const sp of sortedAll) {
+                                        if (sp.from > cursor) { hasGaps = true; break; }
+                                        cursor = Math.max(cursor, sp.to + 1);
+                                      }
+                                      if (cursor <= row.maxSeat) hasGaps = true;
+
+                                      return (
+                                        <div className="px-4 pb-2 space-y-1.5">
+                                          {activeRanges.map((ar, arIdx) => (
+                                            <div key={arIdx} className="flex items-center gap-1.5 text-xs">
+                                              <span className="text-gray-500">Asientos</span>
+                                              <input type="number" value={ar.from} min={row.minSeat} max={ar.to}
+                                                onChange={e => updateActiveRange(row, arIdx, 'from', Number(e.target.value))}
+                                                className={`w-14 rounded border border-[#EF4444]/60 bg-[#1a1a1a] px-1.5 py-1 text-xs text-white text-center focus:border-[#EF4444] focus:outline-none ${noSpinCls}`} />
+                                              <span className="text-gray-600">–</span>
+                                              <input type="number" value={ar.to} min={ar.from} max={row.maxSeat}
+                                                onChange={e => updateActiveRange(row, arIdx, 'to', Number(e.target.value))}
+                                                className={`w-14 rounded border border-[#EF4444]/60 bg-[#1a1a1a] px-1.5 py-1 text-xs text-white text-center focus:border-[#EF4444] focus:outline-none ${noSpinCls}`} />
+                                              <span className="text-gray-600">({ar.to - ar.from + 1})</span>
+                                              <span className="flex items-center gap-1 ml-1">
+                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: activeZone?.color }} />
+                                                <span style={{ color: activeZone?.color }}>{activeZone?.zone_name}</span>
+                                              </span>
+                                              <button onClick={() => removeActiveRangeFromRow(row, arIdx)}
+                                                className="text-gray-600 hover:text-red-400 transition-colors ml-auto" title="Quitar rango">✕</button>
+                                            </div>
+                                          ))}
+                                          {hasGaps && (
+                                            <button onClick={() => addRangeForActiveZone(row)}
+                                              className="text-xs text-gray-500 hover:text-white transition-colors">
+                                              + Agregar rango
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 );
                               })}
