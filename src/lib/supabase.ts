@@ -379,7 +379,7 @@ export interface VenueSeat {
   venue_id: string;
   section: string;
   row_label: string;
-  seat_number: string;
+  seat_number: number;
   seat_type: string;
   sort_order: number;
   x: number;
