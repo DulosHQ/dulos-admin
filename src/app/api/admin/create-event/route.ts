@@ -291,14 +291,20 @@ export async function POST(req: NextRequest) {
         }
 
         // Create event_sections for each venue_section
+        // event_sections.section (NOT NULL) = venue_section slug/name
+        const venueSectionIdToSlug = new Map<string, string>(venueSecs.map(vs => [vs.id, vs.slug]));
         const eventSectionMap = new Map<string, string>(); // venue_section_id → event_section.id
         for (const venueSectionId of reservedSectionIds) {
+          const sectionSlug = venueSectionIdToSlug.get(venueSectionId) || 'default';
           const es = await supaInsert<{ id: string }>('event_sections', {
             event_id: event.id,
             venue_section_id: venueSectionId,
+            section: sectionSlug,
+            price: 0,
           });
           eventSectionMap.set(venueSectionId, es.id);
           created.push({ table: 'event_sections', filter: `id=eq.${es.id}` });
+          console.log(`[create-event] Created event_section: ${es.id} for venue_section ${venueSectionId} (${sectionSlug})`);
         }
 
         // Fetch all venue_seats for this venue (include seat_number for split range matching)
