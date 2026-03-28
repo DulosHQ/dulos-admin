@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 const CATEGORIES = ['teatro', 'concierto', 'festival', 'standup', 'comedia', 'musical', 'otro'];
 const ZONE_COLORS = ['#E63946', '#2A7AE8', '#E88D2A', '#10B981', '#8B5CF6', '#EC4899', '#F59E0B', '#06B6D4'];
 const DAYS_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const STEP_LABELS = ['Info', 'Fechas', 'Zonas', 'Organizador', 'Revisión'];
+const STEP_LABELS_5 = ['Info', 'Fechas', 'Zonas', 'Organizador', 'Revisión'];
+const STEP_LABELS_6 = ['Info', 'Fechas', 'Zonas', 'Mapeo', 'Organizador', 'Revisión'];
 const fmt = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(n);
 const fmtDateDay = (d: string) => {
   if (!d) return '—';
@@ -25,6 +26,9 @@ interface Venue {
   timezone: string; capacity: number; has_seatmap: boolean; layout_svg_url: string | null;
 }
 interface VenueSection { id: string; name: string; slug: string; section_type: string; capacity: number; }
+
+interface VenueSeatWizard { id: string; venue_id: string; section: string; row_label: string; seat_number: number; }
+interface RowGroup { label: string; section: string; seatCount: number; seatIds: string[]; }
 
 interface ZoneForm {
   zone_name: string; zone_type: 'ga' | 'reserved'; price: number; original_price: number;
@@ -111,7 +115,13 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
     { zone_name: 'General', zone_type: 'ga', price: 0, original_price: 0, total_capacity: 100, color: ZONE_COLORS[0], has_2x1: false, venue_section_ids: [] },
   ]);
 
-  // Step 4: Organizer & Commission
+  // Seat Mapper (Mapeo step)
+  const [venueSeats, setVenueSeats] = useState<VenueSeatWizard[]>([]);
+  const [seatsLoading, setSeatsLoading] = useState(false);
+  const [seatAssignments, setSeatAssignments] = useState<Map<string, number>>(new Map()); // rowKey → zone index
+  const [activeMapZone, setActiveMapZone] = useState(0);
+
+  // Organizer & Commission
   const [orgName, setOrgName] = useState('');
   const [orgPhone, setOrgPhone] = useState('5573933510');
   const [orgEmail, setOrgEmail] = useState('paolo@dulos.io');
@@ -129,6 +139,131 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
     return 'GA';
   }, [selVenue, hasReservedSections, venueSections]);
 
+  // ─── Dynamic steps ───
+  const hasReservedZones = useMemo(() => zones.some(z => z.zone_type === 'reserved'), [zones]);
+  const stepLabels = useMemo(() => hasReservedZones ? STEP_LABELS_6 : STEP_LABELS_5, [hasReservedZones]);
+  const totalSteps = stepLabels.length;
+  // Map logical step names to step numbers
+  const stepMap = useMemo(() => {
+    const m: Record<string, number> = {};
+    stepLabels.forEach((label, i) => { m[label] = i + 1; });
+    return m;
+  }, [stepLabels]);
+  const STEP_INFO = 1;
+  const STEP_FECHAS = 2;
+  const STEP_ZONAS = 3;
+  const stepMapeo = hasReservedZones ? 4 : -1;
+  const stepOrganizador = hasReservedZones ? 5 : 4;
+  const stepRevision = hasReservedZones ? 6 : 5;
+
+  // ─── Seat mapper helpers ───
+  const reservedZoneIndices = useMemo(() =>
+    zones.map((z, i) => ({ zone: z, index: i })).filter(({ zone }) => zone.zone_type === 'reserved'),
+    [zones]
+  );
+
+  function rowKeyW(section: string, rowLabel: string): string {
+    return `${section}::${rowLabel}`;
+  }
+
+  function groupSeatsByRowW(seats: VenueSeatWizard[]): RowGroup[] {
+    const rowMap = new Map<string, RowGroup>();
+    for (const seat of seats) {
+      const key = rowKeyW(seat.section, seat.row_label);
+      if (!rowMap.has(key)) {
+        rowMap.set(key, { label: seat.row_label, section: seat.section, seatCount: 0, seatIds: [] });
+      }
+      const row = rowMap.get(key)!;
+      row.seatCount++;
+      row.seatIds.push(seat.id);
+    }
+    return Array.from(rowMap.values()).sort((a, b) => {
+      if (a.section !== b.section) return a.section.localeCompare(b.section);
+      return a.label.localeCompare(b.label);
+    });
+  }
+
+  const seatRows = useMemo(() => groupSeatsByRowW(venueSeats), [venueSeats]);
+
+  // Group rows by section for display
+  const seatRowsBySection = useMemo(() => {
+    const map = new Map<string, RowGroup[]>();
+    for (const row of seatRows) {
+      if (!map.has(row.section)) map.set(row.section, []);
+      map.get(row.section)!.push(row);
+    }
+    return map;
+  }, [seatRows]);
+
+  // Compute seat counts per zone from assignments
+  const zoneSeatCounts = useMemo(() => {
+    const counts = new Map<number, number>(); // zone index → seat count
+    for (const row of seatRows) {
+      const key = rowKeyW(row.section, row.label);
+      const zoneIdx = seatAssignments.get(key);
+      if (zoneIdx !== undefined) {
+        counts.set(zoneIdx, (counts.get(zoneIdx) || 0) + row.seatCount);
+      }
+    }
+    return counts;
+  }, [seatRows, seatAssignments]);
+
+  const unassignedSeatCount = useMemo(() => {
+    return seatRows.reduce((sum, row) => {
+      const key = rowKeyW(row.section, row.label);
+      return sum + (seatAssignments.has(key) ? 0 : row.seatCount);
+    }, 0);
+  }, [seatRows, seatAssignments]);
+
+  // Toggle row assignment
+  const toggleRowAssignment = useCallback((row: RowGroup) => {
+    const key = rowKeyW(row.section, row.label);
+    setSeatAssignments(prev => {
+      const next = new Map(prev);
+      // If already assigned to this zone index, unassign
+      const activeIdx = reservedZoneIndices[activeMapZone]?.index;
+      if (activeIdx === undefined) return prev;
+      if (next.get(key) === activeIdx) {
+        next.delete(key);
+      } else {
+        next.set(key, activeIdx);
+      }
+      return next;
+    });
+  }, [activeMapZone, reservedZoneIndices]);
+
+  // Auto-update zone capacities when seat assignments change
+  useEffect(() => {
+    if (!hasReservedZones || seatRows.length === 0) return;
+    setZones(prev => {
+      let changed = false;
+      const updated = prev.map((z, i) => {
+        if (z.zone_type !== 'reserved') return z;
+        const newCap = zoneSeatCounts.get(i) || 0;
+        if (z.total_capacity !== newCap) {
+          changed = true;
+          return { ...z, total_capacity: newCap };
+        }
+        return z;
+      });
+      return changed ? updated : prev;
+    });
+  }, [zoneSeatCounts, hasReservedZones, seatRows.length]);
+
+  // ─── Fetch venue seats when mapeo step is reached ───
+  useEffect(() => {
+    if (step !== stepMapeo || !ev.venue_id || venueSeats.length > 0) return;
+    setSeatsLoading(true);
+    proxyFetch<VenueSeatWizard[]>('venue_seats', `venue_id=eq.${ev.venue_id}&order=sort_order.asc`)
+      .then(seats => {
+        setVenueSeats(seats);
+        // Default active zone to first reserved zone
+        if (reservedZoneIndices.length > 0) setActiveMapZone(0);
+      })
+      .catch(() => toast.error('Error cargando asientos del venue'))
+      .finally(() => setSeatsLoading(false));
+  }, [step, stepMapeo, ev.venue_id, venueSeats.length, reservedZoneIndices.length]);
+
   // ─── Load venues ───
   useEffect(() => {
     if (!open) return;
@@ -141,6 +276,8 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
     proxyFetch<VenueSection[]>('venue_sections', `venue_id=eq.${ev.venue_id}&order=sort_order.asc`)
       .then(setVenueSections)
       .catch(() => setVenueSections([]));
+    // Reset seat mapper state on venue change
+    setVenueSeats([]); setSeatAssignments(new Map()); setActiveMapZone(0);
   }, [ev.venue_id]);
 
   // ─── Auto-slug from name + venue ───
@@ -193,6 +330,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
     setSchedules([{ date: '', start_time: '20:00', end_time: '21:30', total_capacity: 0, staff_pin: rPin(), staff_phone: '', staff_email: '' }]);
     setCommRate(15); setDurationMin(90); setShowRecHelper(false);
     setOrgName(''); setOrgPhone('5573933510'); setOrgEmail('paolo@dulos.io');
+    setVenueSeats([]); setSeatAssignments(new Map()); setActiveMapZone(0); setSeatsLoading(false);
   }, [open]);
 
   // ─── Generate recurring schedules ───
@@ -232,13 +370,14 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
 
   // ─── Validation ───
   function canNext(): boolean {
-    if (step === 1) return !!(ev.name && ev.venue_id && ev.slug);
-    if (step === 2) return schedules.length > 0 && schedules.every(s => s.date && s.start_time);
-    if (step === 3) return zones.length > 0 && zones.every(z =>
+    if (step === STEP_INFO) return !!(ev.name && ev.venue_id && ev.slug);
+    if (step === STEP_FECHAS) return schedules.length > 0 && schedules.every(s => s.date && s.start_time);
+    if (step === STEP_ZONAS) return zones.length > 0 && zones.every(z =>
       z.zone_name && z.price > 0 && (z.zone_type === 'reserved' || z.total_capacity > 0)
       && (venueSections.length === 0 || z.venue_section_ids.length > 0) // require section when venue has sections
     );
-    if (step === 4) return !!(orgName && orgPhone && orgEmail);
+    if (step === stepMapeo) return unassignedSeatCount === 0 && seatRows.length > 0;
+    if (step === stepOrganizador) return !!(orgName && orgPhone && orgEmail);
     return true;
   }
 
@@ -299,6 +438,10 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
         })),
         commission_rate: commRate / 100,
         venue_timezone: selVenue?.timezone || 'America/Mexico_City',
+        // Seat assignments for reserved zones (rowKey → zone index)
+        ...(hasReservedZones && seatAssignments.size > 0 ? {
+          seat_assignments: Object.fromEntries(seatAssignments),
+        } : {}),
       };
 
       const res = await fetch('/api/admin/create-event', {
@@ -329,7 +472,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
     </button>
   );
 
-  const stepWarnings = step === 5 ? computeWarnings() : [];
+  const stepWarnings = step === stepRevision ? computeWarnings() : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -343,7 +486,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
         <div className="px-6 pt-6 pb-4">
           <h2 className="text-lg font-bold text-white mb-4">Crear Evento</h2>
           <div className="flex items-center gap-1 mb-2">
-            {STEP_LABELS.map((label, i) => {
+            {stepLabels.map((label, i) => {
               const n = i + 1;
               const active = n === step;
               const done = n < step;
@@ -353,7 +496,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                     {done ? '✓' : n}
                   </div>
                   <span className={`text-xs hidden sm:inline ${active ? 'text-white font-medium' : 'text-gray-500'}`}>{label}</span>
-                  {i < STEP_LABELS.length - 1 && <div className={`flex-1 h-px mx-1 ${done ? 'bg-[#EF4444]/40' : 'bg-gray-800'}`}/>}
+                  {i < stepLabels.length - 1 && <div className={`flex-1 h-px mx-1 ${done ? 'bg-[#EF4444]/40' : 'bg-gray-800'}`}/>}
                 </div>
               );
             })}
@@ -363,7 +506,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
         <div className="px-6 pb-6">
 
           {/* ═══ STEP 1: EVENT INFO ═══ */}
-          {step === 1 && (
+          {step === STEP_INFO && (
             <div className="space-y-4">
               <div><label className={lblCls}>Nombre del evento *</label><input className={inpCls} value={ev.name} onChange={e => setEv(p => ({ ...p, name: e.target.value }))} placeholder="Archivo Confidencial: CÁMARA BLANCA"/></div>
 
@@ -435,7 +578,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
           )}
 
           {/* ═══ STEP 2: SCHEDULES ═══ */}
-          {step === 2 && (
+          {step === STEP_FECHAS && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -489,7 +632,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
           )}
 
           {/* ═══ STEP 3: ZONES ═══ */}
-          {step === 3 && (
+          {step === STEP_ZONAS && (
             <div className="space-y-4">
               {!hasReservedSections && (
                 <div className="text-xs text-gray-500 bg-gray-900/50 rounded-lg px-3 py-2 border border-gray-800">
@@ -597,8 +740,137 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
             </div>
           )}
 
-          {/* ═══ STEP 4: ORGANIZADOR ═══ */}
-          {step === 4 && (
+          {/* ═══ STEP 4: MAPEO (only when reserved zones exist) ═══ */}
+          {step === stepMapeo && stepMapeo > 0 && (
+            <div className="space-y-4">
+              <div className="text-xs text-gray-500 bg-gray-900/50 rounded-lg px-3 py-2 border border-gray-800">
+                Asigna cada fila de asientos a una zona reserved. Haz click en una fila para asignarla a la zona activa.
+              </div>
+              {seatsLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-8 bg-gray-800 rounded w-48" />
+                  <div className="h-40 bg-gray-800 rounded" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Left: Zone selector */}
+                  <div className="space-y-3">
+                    <div className={cardCls}>
+                      <h3 className="text-sm font-semibold text-white mb-3">Zonas reserved</h3>
+                      <div className="space-y-2">
+                        {reservedZoneIndices.map(({ zone, index }, mapIdx) => {
+                          const count = zoneSeatCounts.get(index) || 0;
+                          const isActive = activeMapZone === mapIdx;
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => setActiveMapZone(mapIdx)}
+                              className={`w-full text-left px-3 py-3 rounded-lg border transition-all ${
+                                isActive ? 'border-white bg-[#1a1a1a]' : 'border-gray-800 hover:border-gray-600'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                                <span className="text-sm text-white font-medium">{zone.zone_name}</span>
+                                <span className="text-xs text-gray-400 ml-auto">{fmt(zone.price)}</span>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1 ml-5">
+                                {count} asientos asignados
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {unassignedSeatCount > 0 && (
+                        <div className="mt-3 px-3 py-2 bg-yellow-900/20 border border-yellow-800/30 rounded text-xs text-yellow-400">
+                          ⚠️ {unassignedSeatCount} asientos sin asignar
+                        </div>
+                      )}
+                      {unassignedSeatCount === 0 && seatRows.length > 0 && (
+                        <div className="mt-3 px-3 py-2 bg-green-900/20 border border-green-800/30 rounded text-xs text-green-400">
+                          ✓ Todos los asientos asignados
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right: Row list */}
+                  <div className="lg:col-span-2">
+                    <div className="bg-[#111] border border-gray-800 rounded-lg overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-800">
+                        <h3 className="text-sm font-semibold text-white">
+                          Filas
+                          <span className="text-gray-500 font-normal ml-2">
+                            Click para asignar a{' '}
+                            <span style={{ color: reservedZoneIndices[activeMapZone]?.zone.color || '#EF4444' }}>
+                              {reservedZoneIndices[activeMapZone]?.zone.zone_name || '—'}
+                            </span>
+                          </span>
+                        </h3>
+                      </div>
+                      <div className="max-h-[500px] overflow-y-auto">
+                        {Array.from(seatRowsBySection.entries()).map(([sectionSlug, secRows]) => {
+                          const secInfo = venueSections.find(vs => vs.slug === sectionSlug);
+                          const totalSeats = secRows.reduce((s, r) => s + r.seatCount, 0);
+                          return (
+                            <div key={sectionSlug}>
+                              <div className="px-4 py-2 bg-[#0d0d0d] text-xs text-gray-500 font-medium uppercase tracking-wider border-b border-gray-800/50">
+                                {secInfo?.name || sectionSlug} · {totalSeats} asientos
+                              </div>
+                              {secRows.map(row => {
+                                const key = rowKeyW(row.section, row.label);
+                                const assignedZoneIdx = seatAssignments.get(key);
+                                const assignedZone = assignedZoneIdx !== undefined ? zones[assignedZoneIdx] : null;
+                                const activeIdx = reservedZoneIndices[activeMapZone]?.index;
+                                const isAssignedToActive = assignedZoneIdx === activeIdx;
+
+                                return (
+                                  <button
+                                    key={key}
+                                    onClick={() => toggleRowAssignment(row)}
+                                    className={`w-full text-left px-4 py-2.5 flex items-center justify-between border-b border-gray-800/30 transition-all hover:bg-[#1a1a1a] ${
+                                      isAssignedToActive ? 'bg-[#1a1a1a]' : ''
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div
+                                        className="w-5 h-5 rounded border-2 flex items-center justify-center text-[10px] transition-all"
+                                        style={{
+                                          borderColor: assignedZone?.color || '#555',
+                                          backgroundColor: assignedZone ? assignedZone.color + '30' : 'transparent',
+                                        }}
+                                      >
+                                        {assignedZone && '✓'}
+                                      </div>
+                                      <span className="text-sm text-white font-mono font-bold">Fila {row.label}</span>
+                                      <span className="text-xs text-gray-500">{row.seatCount} asientos</span>
+                                    </div>
+                                    {assignedZone ? (
+                                      <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                                        backgroundColor: assignedZone.color + '20',
+                                        color: assignedZone.color,
+                                      }}>
+                                        {assignedZone.zone_name}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-gray-600">sin asignar</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══ STEP: ORGANIZADOR ═══ */}
+          {step === stepOrganizador && (
             <div className="space-y-4">
               <div className={cardCls}>
                 <p className="text-xs text-gray-500 font-medium mb-3">Contacto del organizador</p>
@@ -639,8 +911,8 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
             </div>
           )}
 
-          {/* ═══ STEP 5: REVIEW ═══ */}
-          {step === 5 && (
+          {/* ═══ STEP: REVIEW ═══ */}
+          {step === stepRevision && (
             <div className="space-y-4">
               {/* Venue */}
               <div className={cardCls}>
@@ -708,6 +980,9 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
                   <p>✓ {zones.length} zona{zones.length > 1 ? 's' : ''} de boletos</p>
                   <p>✓ {schedules.length} fecha{schedules.length > 1 ? 's' : ''}</p>
                   <p>✓ {schedules.length * zones.length} registros de inventario</p>
+                  {hasReservedZones && seatAssignments.size > 0 && (
+                    <p>✓ {venueSeats.length} asientos mapeados en {seatAssignments.size} filas</p>
+                  )}
                   <p>✓ Comisión: {commRate}%</p>
                 </div>
               </div>
@@ -730,7 +1005,7 @@ export default function EventWizard({ open, onClose, onCreated }: Props) {
             <button onClick={() => step > 1 ? setStep(step - 1) : onClose()} className="px-5 py-2.5 rounded-lg border border-gray-700 text-gray-300 text-sm font-medium hover:bg-[#111] transition-colors">
               {step === 1 ? 'Cancelar' : '← Anterior'}
             </button>
-            {step < 5 ? (
+            {step < totalSteps ? (
               <button onClick={() => setStep(step + 1)} disabled={!canNext()} className="px-5 py-2.5 rounded-lg bg-[#EF4444] hover:bg-red-600 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 Siguiente →
               </button>

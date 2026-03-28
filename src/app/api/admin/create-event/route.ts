@@ -29,6 +29,14 @@ async function supaDelete(table: string, filter: string): Promise<void> {
   });
 }
 
+async function supaFetch<T>(table: string, query: string): Promise<T> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'GET', headers: { ...headers, 'Prefer': '' },
+  });
+  if (!res.ok) throw new Error(`FETCH ${table} failed (${res.status})`);
+  return res.json();
+}
+
 /* ─── Types ─── */
 interface ZoneInput {
   zone_name: string;
@@ -72,6 +80,7 @@ interface EventInput {
   schedules: ScheduleInput[];
   commission_rate: number;
   venue_timezone: string;
+  seat_assignments?: Record<string, number>; // rowKey (section::row_label) → zone index
 }
 
 /* ─── Main ─── */
@@ -211,6 +220,85 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // 2b. INSERT event_sections + event_section_seats (if seat_assignments provided)
+      if (input.seat_assignments && Object.keys(input.seat_assignments).length > 0) {
+        // Collect unique venue_section_ids from reserved zones
+        const reservedSectionIds = new Set<string>();
+        for (const z of input.zones) {
+          if (z.zone_type === 'reserved' && z.venue_section_ids) {
+            z.venue_section_ids.forEach(sid => reservedSectionIds.add(sid));
+          }
+        }
+
+        // Fetch venue_sections to get their slugs
+        const venueSectionsData = await supaFetch<{ id: string; slug: string }[]>(
+          'venue_sections',
+          `venue_id=eq.${input.venue_id}&select=id,slug`
+        );
+        const sectionIdToSlug = new Map<string, string>();
+        const sectionSlugToId = new Map<string, string>();
+        for (const vs of venueSectionsData) {
+          sectionIdToSlug.set(vs.id, vs.slug);
+          sectionSlugToId.set(vs.slug, vs.id);
+        }
+
+        // Create event_sections for each referenced venue_section
+        const eventSectionMap = new Map<string, string>(); // venue_section_id → event_section_id
+        for (const venueSectionId of reservedSectionIds) {
+          const es = await supaInsert<{ id: string }>('event_sections', {
+            event_id: event.id,
+            venue_section_id: venueSectionId,
+          });
+          eventSectionMap.set(venueSectionId, es.id);
+          created.push({ table: 'event_sections', filter: `id=eq.${es.id}` });
+        }
+
+        // Fetch all venue_seats for the venue
+        const allVenueSeats = await supaFetch<{ id: string; section: string; row_label: string }[]>(
+          'venue_seats',
+          `venue_id=eq.${input.venue_id}&select=id,section,row_label&order=sort_order.asc&limit=5000`
+        );
+
+        // For each seat, determine zone assignment and create event_section_seat
+        const seatInserts: { event_section_id: string; venue_seat_id: string; zone_id: string; status: string }[] = [];
+        for (const seat of allVenueSeats) {
+          const rowKey = `${seat.section}::${seat.row_label}`;
+          const zoneIndex = input.seat_assignments[rowKey];
+          if (zoneIndex === undefined || zoneIndex < 0 || zoneIndex >= createdZones.length) continue;
+
+          const zoneId = createdZones[zoneIndex].id;
+          const venueSectionId = sectionSlugToId.get(seat.section);
+          if (!venueSectionId) continue;
+          const eventSectionId = eventSectionMap.get(venueSectionId);
+          if (!eventSectionId) continue;
+
+          seatInserts.push({
+            event_section_id: eventSectionId,
+            venue_seat_id: seat.id,
+            zone_id: zoneId,
+            status: 'available',
+          });
+        }
+
+        // Batch insert event_section_seats (chunks of 100)
+        for (let i = 0; i < seatInserts.length; i += 100) {
+          const batch = seatInserts.slice(i, i + 100);
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/event_section_seats`, {
+            method: 'POST', headers, body: JSON.stringify(batch),
+          });
+          if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            throw new Error(`INSERT event_section_seats batch failed (${res.status}): ${body}`);
+          }
+          const inserted = await res.json();
+          if (Array.isArray(inserted)) {
+            for (const row of inserted) {
+              created.push({ table: 'event_section_seats', filter: `id=eq.${row.id}` });
+            }
+          }
+        }
+      }
+
       // 3. INSERT schedules
       const createdSchedules: { id: string }[] = [];
       for (const s of input.schedules) {
@@ -246,7 +334,87 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 5. INSERT event_commissions
+      // 5. INSERT event_sections + event_section_seats (for reserved zones with seat assignments)
+      let totalEventSeats = 0;
+      if (input.seat_assignments && Object.keys(input.seat_assignments).length > 0) {
+        // Fetch venue_sections to get slug→id mapping
+        const vSecRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/venue_sections?venue_id=eq.${input.venue_id}&select=id,slug&limit=100`,
+          { headers: { ...headers, 'Prefer': '' } }
+        );
+        const venueSecs: { id: string; slug: string }[] = vSecRes.ok ? await vSecRes.json() : [];
+        const slugToVenueSectionId = new Map<string, string>(venueSecs.map(vs => [vs.slug, vs.id]));
+
+        // Get all reserved zones' venue_section_ids
+        const reservedSectionIds = new Set<string>();
+        input.zones.forEach(z => {
+          if (z.zone_type === 'reserved' && z.venue_section_ids) {
+            z.venue_section_ids.forEach(sid => reservedSectionIds.add(sid));
+          }
+        });
+
+        // Create event_sections for each venue_section
+        const eventSectionMap = new Map<string, string>(); // venue_section_id → event_section.id
+        for (const venueSectionId of reservedSectionIds) {
+          const es = await supaInsert<{ id: string }>('event_sections', {
+            event_id: event.id,
+            venue_section_id: venueSectionId,
+          });
+          eventSectionMap.set(venueSectionId, es.id);
+          created.push({ table: 'event_sections', filter: `id=eq.${es.id}` });
+        }
+
+        // Fetch all venue_seats for this venue
+        const seatsRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/venue_seats?venue_id=eq.${input.venue_id}&order=sort_order.asc&limit=5000`,
+          { headers: { ...headers, 'Prefer': '' } }
+        );
+        const venueSeats: { id: string; section: string; row_label: string }[] = seatsRes.ok ? await seatsRes.json() : [];
+
+        // Build event_section_seats batch
+        const essBatch: { event_section_id: string; venue_seat_id: string; zone_id: string | null; status: string }[] = [];
+        for (const seat of venueSeats) {
+          // seat.section is the slug (e.g., "planta-baja")
+          const venueSectionId = slugToVenueSectionId.get(seat.section);
+          if (!venueSectionId || !reservedSectionIds.has(venueSectionId)) continue;
+
+          const eventSectionId = eventSectionMap.get(venueSectionId);
+          if (!eventSectionId) continue;
+
+          // Get zone assignment from seat_assignments (rowKey = section::row_label → zone index)
+          const rowKey = `${seat.section}::${seat.row_label}`;
+          const zoneIdx = input.seat_assignments[rowKey];
+          const zoneId = zoneIdx !== undefined && createdZones[zoneIdx] ? createdZones[zoneIdx].id : null;
+
+          essBatch.push({
+            event_section_id: eventSectionId,
+            venue_seat_id: seat.id,
+            zone_id: zoneId,
+            status: 'available',
+          });
+        }
+
+        // Batch insert event_section_seats (chunks of 100)
+        if (essBatch.length > 0) {
+          for (let i = 0; i < essBatch.length; i += 100) {
+            const chunk = essBatch.slice(i, i + 100);
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/event_section_seats`, {
+              method: 'POST', headers, body: JSON.stringify(chunk),
+            });
+            if (!res.ok) {
+              const err = await res.text().catch(() => '');
+              throw new Error(`INSERT event_section_seats failed (${res.status}): ${err.slice(0, 200)}`);
+            }
+          }
+          totalEventSeats = essBatch.length;
+          // Track for rollback
+          for (const esId of eventSectionMap.values()) {
+            created.push({ table: 'event_section_seats', filter: `event_section_id=eq.${esId}` });
+          }
+        }
+      }
+
+      // 6. INSERT event_commissions
       const comm = await supaInsert<{ id: string }>('event_commissions', {
         event_id: event.id,
         commission_rate: input.commission_rate ?? 0.15,
@@ -255,6 +423,7 @@ export async function POST(req: NextRequest) {
 
       // Success summary
       const totalZoneSections = input.zones.reduce((sum, z) => sum + (z.venue_section_ids?.length || 0), 0);
+      const seatAssignmentCount = input.seat_assignments ? Object.keys(input.seat_assignments).length : 0;
       return NextResponse.json({
         success: true,
         event_id: event.id,
@@ -264,6 +433,8 @@ export async function POST(req: NextRequest) {
           schedules: createdSchedules.length,
           inventory_rows: createdSchedules.length * createdZones.length,
           zone_sections: totalZoneSections,
+          seat_rows_mapped: seatAssignmentCount,
+          event_seats: totalEventSeats,
           commission: input.commission_rate,
           status: input.status,
         },
