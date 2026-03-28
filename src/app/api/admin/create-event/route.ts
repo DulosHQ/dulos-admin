@@ -365,6 +365,36 @@ export async function POST(req: NextRequest) {
             created.push({ table: 'event_section_seats', filter: `event_section_id=eq.${esId}` });
           }
         }
+
+        // 5b. Auto-create zone_sections from seat assignments
+        // Group: zone_id → Set<venue_section_id> (derived from which sections have seats in each zone)
+        const zoneToSections = new Map<string, Set<string>>();
+        for (const seat of essBatch) {
+          if (!seat.zone_id) continue;
+          // Reverse lookup: event_section_id → venue_section_id
+          for (const [venueSectionId, eventSectionId] of eventSectionMap.entries()) {
+            if (eventSectionId === seat.event_section_id) {
+              if (!zoneToSections.has(seat.zone_id)) zoneToSections.set(seat.zone_id, new Set());
+              zoneToSections.get(seat.zone_id)!.add(venueSectionId);
+              break;
+            }
+          }
+        }
+        console.log('[create-event] Auto-creating zone_sections:', Array.from(zoneToSections.entries()).map(([z, s]) => `${z}: ${Array.from(s).join(',')}`));
+        for (const [zoneId, venueSectionIds] of zoneToSections) {
+          for (const venueSectionId of venueSectionIds) {
+            try {
+              const zs = await supaInsert<{ id: string }>('zone_sections', {
+                zone_id: zoneId,
+                venue_section_id: venueSectionId,
+              });
+              created.push({ table: 'zone_sections', filter: `id=eq.${zs.id}` });
+            } catch (e: any) {
+              // Ignore duplicate (unique constraint) — zone_sections may already exist from explicit venue_section_ids
+              console.log(`[create-event] zone_section insert skipped (may be duplicate): ${e.message}`);
+            }
+          }
+        }
       }
 
       // 6. INSERT event_commissions
