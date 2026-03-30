@@ -11,9 +11,9 @@ const headers = {
 
 export async function getOrders(filters?: { event_id?: string; status?: string }) {
   try {
-    let endpoint = `${SUPABASE_URL}/rest/v1/tickets?order=created_at.desc&limit=50`;
+    let endpoint = `${SUPABASE_URL}/rest/v1/orders?select=*,event:events!event_id(name)&order=purchased_at.desc&limit=50`;
     if (filters?.event_id) endpoint += `&event_id=eq.${filters.event_id}`;
-    if (filters?.status) endpoint += `&status=eq.${filters.status}`;
+    if (filters?.status) endpoint += `&payment_status=eq.${filters.status}`;
     const res = await fetch(endpoint, { headers, cache: 'no-store' });
     if (!res.ok) throw new Error(`Error: ${res.status}`);
     const data = await res.json();
