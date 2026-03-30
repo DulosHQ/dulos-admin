@@ -17,6 +17,7 @@ const TABS: Tab[] = [
   { id: "eventos", label: "Eventos", permissions: ["project.read", "project.manage", "event.read"] },
   { id: "venues", label: "Venues", permissions: ["project.manage", "sys.config"] },
   { id: "operaciones", label: "Operaciones", permissions: ["ticket.scan", "marketing.codes.manage"], secondary: true },
+  { id: "crons", label: "🔄 Crons", permissions: ["sys.config", "sys.audit"], secondary: true },
   { id: "admin", label: "Configuración", permissions: ["team.manage", "sys.config", "sys.audit"], secondary: true },
 ];
 

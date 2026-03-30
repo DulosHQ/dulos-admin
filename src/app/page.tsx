@@ -10,6 +10,7 @@ import EventsPage from "@/pages/EventsPage";
 import OpsPage from "@/pages/OpsPage";
 import AdminPage from "@/pages/AdminPage";
 import VenuesPage from "@/pages/VenuesPage";
+import CronsPage from "@/pages/CronsPage";
 import AdminShell from "@/layouts/AdminShell";
 
 function getSupabase() {
@@ -107,6 +108,7 @@ export default function Home() {
     eventos: <EventsPage />,
     venues: <VenuesPage />,
     operaciones: <OpsPage />,
+    crons: <CronsPage />,
     admin: <AdminPage />,
   };
 
