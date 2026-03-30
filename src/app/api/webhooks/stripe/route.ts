@@ -18,9 +18,22 @@ function verifyStripeSignature(payload: string, signature: string): boolean {
     const timestamp = parts.find(p => p.startsWith("t="))?.split("=")[1];
     const sig = parts.find(p => p.startsWith("v1="))?.split("v1=")[1];
     if (!timestamp || !sig) return false;
-    const expected = crypto.createHmac("sha256", STRIPE_WEBHOOK_SECRET).update(`${timestamp}.${payload}`).digest("hex");
-    return sig === expected;
-  } catch { return false; }
+
+    // Replay protection: reject events older than 5 minutes
+    const eventAge = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
+    if (isNaN(eventAge) || eventAge > 300) return false;
+
+    const expected = crypto
+      .createHmac("sha256", STRIPE_WEBHOOK_SECRET)
+      .update(`${timestamp}.${payload}`)
+      .digest("hex");
+
+    // Use timing-safe comparison to prevent timing attacks
+    if (expected.length !== sig.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
+  } catch {
+    return false;
+  }
 }
 
 async function supabasePost(table: string, data: Record<string, unknown>) {
@@ -55,8 +68,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
     const signature = req.headers.get("stripe-signature") || "";
-    if (signature && !verifyStripeSignature(body, signature)) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+
+    // ALWAYS require and verify signature — never skip
+    if (!signature || !verifyStripeSignature(body, signature)) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const event = JSON.parse(body);
@@ -66,28 +81,17 @@ export async function POST(req: NextRequest) {
     await logAudit(event.type, "stripe", event.id || "", JSON.stringify(data || {}).slice(0, 400));
 
     switch (event.type) {
-      // ✅ Pago completado — create order
+      // ✅ Pago completado — AUDIT ONLY (main dashboard webhook handles order creation)
+      // This admin webhook should NOT create orders — that's the dashboard's job.
+      // Duplicating order creation here causes double orders.
       case "checkout.session.completed": {
         if (data) {
-          const metadata = data.metadata || {};
-          await supabasePost("orders", {
-            order_number: `DUL-${Date.now()}`,
-            customer_name: data.customer_details?.name || "Cliente",
-            customer_email: data.customer_details?.email || "",
-            customer_phone: data.customer_details?.phone || "",
-            total_price: (data.amount_total || 0) / 100,
-            currency: data.currency?.toUpperCase() || "MXN",
-            payment_status: "completed",
-            stripe_payment_id: data.payment_intent || data.id,
-            event_id: metadata.event_id || null,
-            quantity: Number(metadata.quantity) || 1,
-            zone_name: metadata.zone_name || null,
-            unit_price: metadata.unit_price ? Number(metadata.unit_price) : (data.amount_total || 0) / 100,
-            purchased_at: new Date().toISOString(),
-            utm_source: metadata.utm_source || null,
-            utm_medium: metadata.utm_medium || null,
-            utm_campaign: metadata.utm_campaign || null,
-          });
+          await logAudit(
+            "checkout.session.completed (admin audit)",
+            "payment",
+            data.payment_intent || data.id,
+            `Admin webhook received checkout: $${(data.amount_total || 0) / 100} MXN — ${data.customer_details?.email || ""}`
+          );
         }
         break;
       }
@@ -100,7 +104,7 @@ export async function POST(req: NextRequest) {
         break;
       }
 
-      // ❌ Pago fallido — log + audit (escalations table may not exist yet)
+      // ❌ Pago fallido — log + audit
       case "payment_intent.payment_failed": {
         if (data) {
           const errorMsg = data.last_payment_error?.message || "Error desconocido";
@@ -110,7 +114,6 @@ export async function POST(req: NextRequest) {
             data.id,
             `PAGO FALLIDO: $${(data.amount || 0) / 100} MXN — ${errorMsg} — ${data.receipt_email || ""}`
           );
-          // Try escalations table (may not exist yet)
           try {
             await supabasePost("escalations", {
               client_id: data.receipt_email || data.id,
@@ -158,7 +161,6 @@ export async function POST(req: NextRequest) {
             data.id,
             `Reembolso $${(data.amount_refunded || 0) / 100} MXN — PI: ${paymentIntent || "N/A"}`
           );
-          // Update the order to payment_status: refunded
           if (paymentIntent) {
             await supabasePatch(
               "orders",
